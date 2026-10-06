@@ -16,7 +16,7 @@ export class LLMError extends Error {
 export interface LLMChunk { provider: string; text: string }
 
 const split = (v?: string) => (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-const MAX_TOKENS = 900;
+const MAX_TOKENS = 2000; // marge pour les modèles à réflexion (la réflexion consomme des jetons)
 
 function oai(id: string, url: string, key: string, model: string): Provider {
   return {
@@ -38,7 +38,7 @@ function oai(id: string, url: string, key: string, model: string): Provider {
 export function buildProviders(): Provider[] {
   const list: Provider[] = [];
 
-  const gModel = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const gModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
   [...new Set([...split(process.env.GEMINI_API_KEYS), ...split(process.env.GEMINI_API_KEY)])].forEach((key, i) =>
     list.push({
       id: `gemini#${i + 1}`,
@@ -50,7 +50,7 @@ export function buildProviders(): Provider[] {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
             contents: [{ role: "user", parts: [{ text: user }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: MAX_TOKENS },
+            generationConfig: { maxOutputTokens: MAX_TOKENS },
           }),
         }),
       parse: (d) => {
@@ -118,6 +118,7 @@ export async function* streamLLM(system: string, user: string): AsyncGenerator<L
   const ready = providers.filter((p) => (cooldown.get(p.id) ?? 0) <= now);
   const queue = ready.length > 0 ? ready : providers;
   const tried: string[] = [];
+  const failures: string[] = [];
 
   for (const p of queue) {
     tried.push(p.id);
@@ -126,7 +127,10 @@ export async function* streamLLM(system: string, user: string): AsyncGenerator<L
     let started = false;
     try {
       const res = await p.open(system, user, ctrl.signal);
-      if (!res.ok) throw new LLMError(`HTTP ${res.status}`, res.status);
+      if (!res.ok) {
+        const detail = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 140);
+        throw new LLMError(`HTTP ${res.status} ${detail}`.trim(), res.status);
+      }
       for await (const raw of sseData(res)) {
         let text = "";
         try { text = p.parse(JSON.parse(raw)); } catch { continue; }
@@ -139,10 +143,11 @@ export async function* streamLLM(system: string, user: string): AsyncGenerator<L
     } catch (e) {
       if (started) throw e; // coupure en cours de réponse : on garde ce qui a été reçu
       const status = e instanceof LLMError ? e.status : null;
+      failures.push(`${p.id} : ${e instanceof Error && e.name === "AbortError" ? "délai dépassé" : e instanceof Error ? e.message : "erreur"}`);
       cooldown.set(p.id, Date.now() + (status === 401 || status === 403 ? 10 * COOLDOWN_MS : COOLDOWN_MS));
     } finally {
       clearTimeout(timer);
     }
   }
-  throw new LLMError(`Tous les fournisseurs IA ont échoué (${tried.join(", ")}). Quotas épuisés ou clés invalides.`, 503);
+  throw new LLMError(`Tous les fournisseurs IA ont échoué — ${failures.join(" | ")}`, 503);
 }
