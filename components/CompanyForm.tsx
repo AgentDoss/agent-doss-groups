@@ -186,10 +186,12 @@ export default function CompanyForm() {
           "Supabase n'a retourné aucune fiche entreprise après l'enregistrement.",
         );
       }
+      
+setMsg("Fiche enregistrée ✓");
 
-      setMsg(
-        `Fiche enregistrée ✓ Entreprise : ${data.name || "sans nom"} · ID entreprise : ${data.company_id}`,
-      );
+window.setTimeout(() => {
+  window.location.href = "/doss";
+}, 500);
     } catch (e) {
       setError(
         e instanceof Error
