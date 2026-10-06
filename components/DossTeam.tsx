@@ -51,6 +51,7 @@ export default function DossTeam() {
   const [ttft, setTtft] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [burst, setBurst] = useState(0);
+  const [hasCompany, setHasCompany] = useState<boolean | null>(null);
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -72,6 +73,10 @@ export default function DossTeam() {
         setEmail(data.session.user.email ?? "");
         setReady(true);
         loadHistory();
+        try {
+          const { data: c } = await getSupabase().from("doss_company").select("user_id").maybeSingle();
+          setHasCompany(!!c);
+        } catch { setHasCompany(null); }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Erreur de configuration");
         setReady(true);
@@ -161,7 +166,7 @@ export default function DossTeam() {
             </button>
           ))}
         </nav>
-        <div className="side-foot"><small>{email}</small><button className="ghostButton" onClick={logout}>Déconnexion</button></div>
+        <div className="side-foot"><small>{email}</small><a className="ghostButton" href="/entreprise">🏢 Fiche entreprise</a><button className="ghostButton" onClick={logout}>Déconnexion</button></div>
       </aside>
 
       <main className="content">
@@ -186,6 +191,12 @@ export default function DossTeam() {
           </div>
           <div className="chips">{EXAMPLES.map((e) => <button key={e} className="chip" onClick={() => send(e)} disabled={loading}>{e}</button>)}</div>
         </section>
+
+        {hasCompany === false && (
+          <a className="card pad notice" href="/entreprise">
+            🏢 <strong>Complétez votre fiche entreprise</strong> : vos agents donneront des conseils adaptés à votre activité. <span>Remplir ➜</span>
+          </a>
+        )}
 
         <div className="stats">
           <div className="card stat"><b>9</b><span>agents experts</span></div>
