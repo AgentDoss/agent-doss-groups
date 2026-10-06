@@ -180,3 +180,495 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 @keyframes reveal { from { opacity: 0; transform: translateY(12px) scale(.98); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
 
 @media (max-width: 860px) { .star:nth-child(n+17) { display: none; } .runes span:nth-child(n+4) { display: none; } }
+/* =========================================================
+   AGENT DOSS GROUPS — MOBILE FIRST
+   Étape 1 : dashboard téléphone
+   ========================================================= */
+
+@media (max-width: 860px) {
+
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    font-size: 14px;
+  }
+
+  .app {
+    display: block;
+    min-height: 100vh;
+  }
+
+  /* ---------- Barre DOSS mobile ---------- */
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    padding: 10px 12px 8px;
+    overflow: hidden;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 8px 30px rgba(10, 10, 40, .22);
+    backdrop-filter: blur(18px);
+  }
+
+  .brand {
+    margin: 0 2px 9px;
+    gap: 9px;
+  }
+
+  .brand .logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+  }
+
+  .brand b {
+    font-size: 13px;
+  }
+
+  .brand small {
+    font-size: 9px;
+  }
+
+  .lbl {
+    display: none;
+  }
+
+  /* ---------- Navigation des agents ---------- */
+
+  .nav {
+    display: flex;
+    flex-direction: row;
+    gap: 7px;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 1px 1px 5px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .menuItem {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 62px;
+    min-height: 52px;
+    padding: 6px 8px;
+    gap: 4px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    border-radius: 13px;
+  }
+
+  .menuItem small {
+    display: none;
+  }
+
+  .menuItem .mic {
+    width: 27px;
+    height: 27px;
+    border-radius: 8px;
+    font-size: 15px;
+  }
+
+  .menuItem > span:last-child {
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .menuItem:hover {
+    transform: none;
+  }
+
+  .menuItem.active {
+    box-shadow: 0 7px 20px color-mix(
+      in srgb,
+      var(--acc) 35%,
+      transparent
+    );
+  }
+
+  /* ---------- Pied de navigation ---------- */
+
+  .side-foot {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 7px;
+    margin: 5px 0 0;
+    padding: 0;
+  }
+
+  .side-foot > small {
+    display: none;
+  }
+
+  .side-foot .ghostButton {
+    min-height: 36px;
+    padding: 7px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .side-foot .ghostButton:first-of-type {
+    flex: 1;
+  }
+
+  /* ---------- Contenu ---------- */
+
+  .content {
+    width: 100%;
+    max-width: 100%;
+    padding: 16px 12px 90px;
+    margin: 0;
+  }
+
+  .top {
+    margin-bottom: 13px;
+    gap: 8px;
+  }
+
+  .top h1 {
+    font-size: 22px;
+    line-height: 1.2;
+  }
+
+  .top .status {
+    width: 100%;
+    justify-content: center;
+    font-size: 12px;
+    padding: 7px 10px;
+  }
+
+  /* ---------- Hero DOSS ---------- */
+
+  .hero {
+    padding: 19px 15px;
+    border-radius: 21px;
+    box-shadow: 0 18px 45px rgba(60,38,190,.28);
+  }
+
+  .hero h2 {
+    font-size: 20px;
+    line-height: 1.25;
+    max-width: 90%;
+  }
+
+  .hero p {
+    font-size: 13px;
+    line-height: 1.45;
+    margin-bottom: 13px;
+  }
+
+  .hero .runes {
+    opacity: .55;
+  }
+
+  /* ---------- Zone de mission ---------- */
+
+  .composer {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 7px;
+    border-radius: 17px;
+  }
+
+  .composer textarea {
+    width: 100%;
+    min-height: 74px;
+    max-height: 150px;
+    padding: 10px;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .sendWrap {
+    width: 100%;
+  }
+
+  .sendButton {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 13px;
+    font-size: 14px;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 7px;
+    margin-top: 11px;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chip {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 7px 11px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  /* ---------- Statistiques ---------- */
+
+  .stats {
+    display: flex;
+    overflow-x: auto;
+    gap: 9px;
+    margin-top: 12px;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .stats::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stat {
+    flex: 0 0 128px;
+    min-height: 82px;
+    padding: 12px 13px;
+    border-radius: 16px;
+  }
+
+  .stat b {
+    font-size: 22px;
+  }
+
+  .stat span {
+    font-size: 11px;
+  }
+
+  /* ---------- Cartes ---------- */
+
+  .card {
+    border-radius: 17px;
+  }
+
+  .pad {
+    padding: 15px;
+  }
+
+  /* ---------- Résultat IA ---------- */
+
+  .result {
+    margin-top: 13px !important;
+  }
+
+  .steps {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+  }
+
+  .steps::-webkit-scrollbar {
+    display: none;
+  }
+
+  .step {
+    flex: 0 0 auto;
+    font-size: 10px;
+    padding: 5px 9px;
+  }
+
+  .rt {
+    gap: 10px;
+    align-items: center;
+  }
+
+  .cardIcon.big {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    border-radius: 12px;
+    font-size: 22px;
+  }
+
+  .rt > div:nth-child(2) {
+    min-width: 0 !important;
+  }
+
+  .rt strong {
+    font-size: 16px !important;
+  }
+
+  .rt .chip.solid {
+    width: 100%;
+    text-align: center;
+  }
+
+  .agentBubble {
+    margin-top: 12px;
+    padding: 13px;
+    font-size: 14px;
+    line-height: 1.6;
+    border-radius: 14px 14px 14px 5px;
+    overflow-wrap: anywhere;
+  }
+
+  .resFoot {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .resFoot .ghostButton {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .resFoot small {
+    text-align: center;
+  }
+
+  /* ---------- Fiche agent ---------- */
+
+  .agCard {
+    min-width: 0;
+    padding: 15px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .agCard .cardIcon {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 9px;
+  }
+
+  .agCard h4 {
+    font-size: 15px;
+  }
+
+  .agCard p {
+    font-size: 12.5px;
+  }
+
+  /* ---------- Historique ---------- */
+
+  .hrow {
+    gap: 8px;
+    padding: 10px 0;
+  }
+
+  .hmsg {
+    font-size: 12px;
+  }
+
+  .hrow small {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  /* ---------- Notice entreprise ---------- */
+
+  .notice {
+    margin-top: 12px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  /* ---------- Animations ---------- */
+
+  .orb {
+    opacity: .2;
+  }
+
+  .o1 {
+    width: 260px;
+    height: 260px;
+  }
+
+  .o2 {
+    width: 220px;
+    height: 220px;
+  }
+
+  .o3 {
+    width: 240px;
+    height: 240px;
+  }
+
+  .agCard:hover {
+    transform: none;
+  }
+
+  /* Évite les effets trop lourds sur téléphone */
+  .agCard::after {
+    display: none;
+  }
+}
+
+/* Très petits téléphones */
+@media (max-width: 390px) {
+
+  .content {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+
+  .hero {
+    padding: 17px 13px;
+  }
+
+  .hero h2 {
+    font-size: 18px;
+  }
+
+  .menuItem {
+    min-width: 57px;
+  }
+
+  .menuItem > span:last-child {
+    font-size: 9px;
+  }
+
+  .stat {
+    flex-basis: 118px;
+  }
+}
+
+/* Téléphones avec hauteur réduite / paysage */
+@media (max-width: 860px) and (orientation: landscape) {
+
+  .sidebar {
+    position: relative;
+  }
+
+  .brand {
+    margin-bottom: 5px;
+  }
+
+  .nav {
+    max-height: 58px;
+  }
+      }
