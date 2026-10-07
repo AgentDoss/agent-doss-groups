@@ -51,10 +51,6 @@ export default function DossTeam() {
   const [ttft, setTtft] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [burst, setBurst] = useState(0);
-  const [hasCompany, setHasCompany] = useState<boolean | null>(null);
-  const [companyCount, setCompanyCount] = useState(0);
-  const [companyName, setCompanyName] = useState("");
-  const [userId, setUserId] = useState("");
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -74,26 +70,8 @@ export default function DossTeam() {
         const { data } = await getSupabase().auth.getSession();
         if (!data.session) { window.location.href = "/login"; return; }
         setEmail(data.session.user.email ?? "");
-        setUserId(data.session.user.id);
         setReady(true);
         loadHistory();
-        try {
-          const { data: companies, count, error: ce } = await getSupabase()
-            .from("doss_company")
-            .select("*", { count: "exact" });
-          if (ce) {
-            setHasCompany(null);
-          } else {
-            setCompanyCount(count ?? 0);
-            if (companies && companies.length > 0) {
-              setHasCompany(true);
-              const first = companies[0] as Record<string, unknown>;
-              setCompanyName(String(first.company_name ?? first.name ?? first.business_name ?? ""));
-            } else {
-              setHasCompany(false);
-            }
-          }
-        } catch { setHasCompany(null); }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Erreur de configuration");
         setReady(true);
@@ -162,24 +140,6 @@ export default function DossTeam() {
   }
   async function logout() { await getSupabase().auth.signOut(); window.location.href = "/login"; }
 
-  async function deleteCompany() {
-    if (!userId) return;
-    if (!confirm("Supprimer cette entreprise ?")) return;
-    try {
-      const { error: de } = await getSupabase()
-        .from("doss_company")
-        .delete()
-        .eq("user_id", userId);
-      if (de) throw de;
-      setCompanyName("");
-      setCompanyCount(0);
-      setHasCompany(false);
-      alert("Entreprise supprimée");
-    } catch {
-      alert("Erreur lors de la suppression");
-    }
-  }
-
   const primary = route ? getAgentById(route.primaryAgent) : undefined;
   const sel = selected ? getAgentById(selected) : undefined;
   const totalCaps = DOSS_AGENTS.reduce((n, a) => n + a.capabilities.length, 0);
@@ -201,7 +161,7 @@ export default function DossTeam() {
             </button>
           ))}
         </nav>
-        <div className="side-foot"><small>{email}</small><a className="ghostButton" href="/entreprise">🏢 Fiche entreprise</a><button className="ghostButton" onClick={logout}>Déconnexion</button></div>
+        <div className="side-foot"><small>{email}</small><button className="ghostButton" onClick={logout}>Déconnexion</button></div>
       </aside>
 
       <main className="content">
@@ -227,40 +187,12 @@ export default function DossTeam() {
           <div className="chips">{EXAMPLES.map((e) => <button key={e} className="chip" onClick={() => send(e)} disabled={loading}>{e}</button>)}</div>
         </section>
 
-        {hasCompany === false && (
-          <a className="card pad notice" href="/entreprise">
-            🏢 <strong>Complétez votre fiche entreprise</strong> : vos agents donneront des conseils adaptés à votre activité. <span>Remplir ➜</span>
-          </a>
-        )}
-
         <div className="stats">
-          <div className="card stat">
-            <b>9</b>
-            <span>agents experts</span>
-          </div>
-          <div className="card stat">
-            <b>{companyCount}</b>
-            <span>entreprises</span>
-          </div>
-          <div className="card stat">
-            <b>{totalCaps}</b>
-            <span>capacités</span>
-          </div>
-          <div className="card stat">
-            <b>{ttft !== null ? `${ttft.toFixed(1)} s` : "Direct"}</b>
-            <span>{ttft !== null ? "premier mot reçu" : "réponse en continu"}</span>
-          </div>
+          <div className="card stat"><b>9</b><span>agents experts</span></div>
+          <div className="card stat"><b>{totalCaps}</b><span>capacités</span></div>
+          <div className="card stat"><b>4</b><span>étapes de vente</span></div>
+          <div className="card stat"><b>{ttft !== null ? `${ttft.toFixed(1)} s` : "Direct"}</b><span>{ttft !== null ? "premier mot reçu" : "réponse en continu"}</span></div>
         </div>
-
-        {companyName && (
-          <div className="card pad" style={{ marginTop: 16 }}>
-            <div className="eyebrow">Entreprise active</div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-              <h3 style={{ margin: 0 }}>🏢 {companyName}</h3>
-              <button className="ghostButton" onClick={deleteCompany}>Supprimer</button>
-            </div>
-          </div>
-        )}
 
         {error && !primary && <p role="alert" className="err" style={{ marginTop: 16 }}>{error}</p>}
 
