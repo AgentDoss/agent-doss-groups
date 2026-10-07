@@ -4,6 +4,7 @@ import { DOSS_AGENTS, directorRoute, getAgentById, type AgentId, type DirectorRo
 import { getSupabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
 import MagicBackground from "@/components/MagicBackground";
+import { PLANS, monthStartISO, type PlanId } from "@/lib/plans";
 
 const EXAMPLES = [
   "Trouve de nouveaux clients",
@@ -51,6 +52,10 @@ export default function DossTeam() {
   const [ttft, setTtft] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [burst, setBurst] = useState(0);
+  const [companies, setCompanies] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [companyId, setCompanyId] = useState("");
+  const [plan, setPlan] = useState<PlanId>("gratuit");
+  const [used, setUsed] = useState(0);
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -64,6 +69,28 @@ export default function DossTeam() {
     } catch { /* historique facultatif */ }
   }, []);
 
+  const loadCompanies = useCallback(async () => {
+    try {
+      const { data } = await getSupabase().from("doss_company").select("id,name").order("created_at", { ascending: true });
+      const list = (data as Array<{ id: string; name: string }>) ?? [];
+      setCompanies(list);
+      let saved = "";
+      try { saved = localStorage.getItem("doss_company_id") ?? ""; } catch { /* ignoré */ }
+      setCompanyId(list.some((c) => c.id === saved) ? saved : list[0]?.id ?? "");
+    } catch { /* facultatif */ }
+  }, []);
+
+  const loadUsage = useCallback(async () => {
+    try {
+      const sb = getSupabase();
+      const { data: p } = await sb.from("doss_profiles").select("plan").maybeSingle();
+      const pl = (p as { plan?: string } | null)?.plan;
+      setPlan(pl === "pro" || pl === "entreprise" ? pl : "gratuit");
+      const { count } = await sb.from("doss_missions").select("id", { count: "exact", head: true }).eq("status", "done").gte("created_at", monthStartISO());
+      setUsed(count ?? 0);
+    } catch { /* facultatif */ }
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -72,12 +99,14 @@ export default function DossTeam() {
         setEmail(data.session.user.email ?? "");
         setReady(true);
         loadHistory();
+        loadCompanies();
+        loadUsage();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Erreur de configuration");
         setReady(true);
       }
     })();
-  }, [loadHistory]);
+  }, [loadHistory, loadCompanies, loadUsage]);
 
   async function send(text = msg) {
     const message = text.trim();
@@ -94,7 +123,7 @@ export default function DossTeam() {
       const res = await fetch("/api/doss/mission", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, companyId: companyId || undefined }),
       });
       if (!res.ok || !res.body) {
         const j = await res.json().catch(() => ({}));
@@ -127,6 +156,7 @@ export default function DossTeam() {
         }
       }
       loadHistory();
+      loadUsage();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
       setStage(3);
@@ -143,6 +173,7 @@ export default function DossTeam() {
   const primary = route ? getAgentById(route.primaryAgent) : undefined;
   const sel = selected ? getAgentById(selected) : undefined;
   const totalCaps = DOSS_AGENTS.reduce((n, a) => n + a.capabilities.length, 0);
+  const limit = PLANS[plan].monthly;
 
   if (!ready) return <div className="boot"><Logo size={64} /></div>;
 
@@ -161,13 +192,21 @@ export default function DossTeam() {
             </button>
           ))}
         </nav>
-        <div className="side-foot"><small>{email}</small><button className="ghostButton" onClick={logout}>Déconnexion</button></div>
+        <div className="side-foot"><small>{email}</small><a className="ghostButton" href="/entreprise">🏢 Mes entreprises</a><button className="ghostButton" onClick={logout}>Déconnexion</button></div>
       </aside>
 
       <main className="content">
         <div className="top">
           <div><div className="eyebrow">Centre de commande</div><h1>Votre équipe d'experts IA, <span className="gradText">prête à agir</span></h1></div>
-          <div className="status"><span className="statusDot" />9 experts en ligne</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            {companies && companies.length > 0 && (
+              <select className="coSelect" aria-label="Entreprise active" value={companyId}
+                onChange={(e) => { setCompanyId(e.target.value); try { localStorage.setItem("doss_company_id", e.target.value); } catch { /* ignoré */ } }}>
+                {companies.map((c) => <option key={c.id} value={c.id}>🏢 {c.name || "Entreprise sans nom"}</option>)}
+              </select>
+            )}
+            <div className="status"><span className="statusDot" />9 experts en ligne</div>
+          </div>
         </div>
 
         <section className="hero">
@@ -187,10 +226,16 @@ export default function DossTeam() {
           <div className="chips">{EXAMPLES.map((e) => <button key={e} className="chip" onClick={() => send(e)} disabled={loading}>{e}</button>)}</div>
         </section>
 
+        {companies && companies.length === 0 && (
+          <a className="card pad notice" href="/entreprise">
+            🏢 <strong>Complétez votre fiche entreprise</strong> : vos agents donneront des conseils adaptés à votre activité. <span>Remplir ➜</span>
+          </a>
+        )}
+
         <div className="stats">
           <div className="card stat"><b>9</b><span>agents experts</span></div>
           <div className="card stat"><b>{totalCaps}</b><span>capacités</span></div>
-          <div className="card stat"><b>4</b><span>étapes de vente</span></div>
+          <div className="card stat"><b>{used}/{limit}</b><span>missions ce mois · offre {PLANS[plan].label}</span></div>
           <div className="card stat"><b>{ttft !== null ? `${ttft.toFixed(1)} s` : "Direct"}</b><span>{ttft !== null ? "premier mot reçu" : "réponse en continu"}</span></div>
         </div>
 

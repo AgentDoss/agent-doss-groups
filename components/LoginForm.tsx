@@ -53,6 +53,7 @@ export default function LoginForm() {
         </button>
         {error && <p role="alert" className="err">{error}</p>}
         {info && <p className="ok">{info}</p>}
+        {mode === "in" && <a className="linkBtn" href="/mot-de-passe-oublie">Mot de passe oublié ?</a>}
         <button type="button" className="linkBtn" onClick={() => setMode(mode === "in" ? "up" : "in")}>
           {mode === "in" ? "Pas de compte ? Créer un compte" : "Déjà un compte ? Se connecter"}
         </button>
