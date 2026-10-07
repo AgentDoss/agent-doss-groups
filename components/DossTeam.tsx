@@ -52,7 +52,15 @@ export default function DossTeam() {
   const [ttft, setTtft] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [burst, setBurst] = useState(0);
-  const [companies, setCompanies] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [companies, setCompanies] = useState<Array<{
+  id: string;
+  name: string;
+  activity?: string;
+  lead_count?: number;
+  customer_count?: number;
+  monthly_revenue?: number;
+  ai_score?: number;
+}> | null>(null);
   const [companyId, setCompanyId] = useState("");
   const [plan, setPlan] = useState<PlanId>("gratuit");
   const [used, setUsed] = useState(0);
@@ -71,7 +79,18 @@ export default function DossTeam() {
 
   const loadCompanies = useCallback(async () => {
     try {
-      const { data } = await getSupabase().from("doss_company").select("id,name").order("created_at", { ascending: true });
+      const { data } = await getSupabase()
+  .from("doss_company")
+  .select(`
+    id,
+    name,
+    activity,
+    lead_count,
+    customer_count,
+    monthly_revenue,
+    ai_score
+  `)
+  .order("created_at", { ascending: true });
       const list = (data as Array<{ id: string; name: string }>) ?? [];
       setCompanies(list);
       let saved = "";
@@ -240,6 +259,51 @@ export default function DossTeam() {
         </div>
 
         {error && !primary && <p role="alert" className="err" style={{ marginTop: 16 }}>{error}</p>}
+        {companies && companyId && (() => {
+  const company = companies.find((c) => c.id === companyId);
+
+  if (!company) return null;
+
+  return (
+    <section className="card pad" style={{ marginTop: 18 }}>
+      <div className="eyebrow">
+        Entreprise active
+      </div>
+
+      <h2 style={{ marginTop: 6 }}>
+        🏢 {company.name}
+      </h2>
+
+      {company.activity && (
+        <p className="muted">
+          {company.activity}
+        </p>
+      )}
+
+      <div className="stats">
+        <div className="card stat">
+          <b>{company.lead_count ?? 0}</b>
+          <span>Prospects</span>
+        </div>
+
+        <div className="card stat">
+          <b>{company.customer_count ?? 0}</b>
+          <span>Clients</span>
+        </div>
+
+        <div className="card stat">
+          <b>{company.monthly_revenue ?? 0} €</b>
+          <span>CA mensuel</span>
+        </div>
+
+        <div className="card stat">
+          <b>{company.ai_score ?? 50}</b>
+          <span>Score IA</span>
+        </div>
+      </div>
+    </section>
+  );
+})()}
 
         {route && primary && (
           <section ref={resultRef} className={`card pad result${loading ? " busy" : ""}`} style={{ ...acc(primary.id), marginTop: 18 }} aria-live="polite">
