@@ -1,0 +1,25 @@
+/* Styles des nouvelles fonctions : fiches entreprise, sélecteur, mot de passe.
+   Fichier séparé pour ne pas modifier globals.css. */
+/* ===== Fiche entreprise ===== */
+a.ghostButton { display: inline-block; text-align: center; text-decoration: none; }
+.notice { display: block; margin-top: 18px; text-decoration: none; color: inherit; border-left: 4px solid #ff9a3d; font-size: 16.5px; }
+.notice span { color: var(--brand); font-weight: 700; white-space: nowrap; }
+.formWrap { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 24px 16px 80px; }
+.formTop { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.formTop h1 { margin: 0; font-size: 28px; font-weight: 800; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+.field label { font-weight: 700; font-size: 17px; }
+.field .hint { color: var(--muted); font-size: 15px; }
+.field input, .field textarea { padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(109,74,255,.25); font: inherit; font-size: 17px; background: #fff; color: #15153a; resize: vertical; width: 100%; }
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 4px rgba(109,74,255,.15); }
+.field .count { align-self: flex-end; font-size: 13px; color: var(--muted); }
+.saveBar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+
+/* ===== Multi-entreprises, mot de passe, offres ===== */
+.coSelect { font: inherit; font-size: 16px; padding: 9px 14px; border-radius: 999px; border: 1px solid rgba(109,74,255,.3); background: var(--card); color: var(--ink); max-width: 100%; }
+.coSelect option { color: #15153a; background: #fff; }
+.coTabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.coTab { padding: 9px 16px; border-radius: 999px; border: 1px solid rgba(109,74,255,.3); background: var(--card); font-size: 16px; color: var(--ink); }
+.coTab.on { background: var(--grad); color: #fff; border-color: transparent; }
+.dangerBtn { color: #b91c1c; background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); border-radius: 12px; padding: 10px 16px; font-size: 15.5px; }
+a.linkBtn { display: block; text-align: center; font-size: 15.5px; }
