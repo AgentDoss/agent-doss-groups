@@ -91,6 +91,10 @@ export default function DossTeam() {
     id,
     name,
     activity,
+    email,
+    phone,
+    city,
+    country,
     lead_count,
     customer_count,
     monthly_revenue,
@@ -285,6 +289,27 @@ export default function DossTeam() {
           {company.activity}
         </p>
       )}
+      <div className="companyMeta">
+
+  {company.email && (
+    <div>
+      📧 {company.email}
+    </div>
+  )}
+
+  {company.phone && (
+    <div>
+      📞 {company.phone}
+    </div>
+  )}
+
+  {(company.city || company.country) && (
+    <div>
+      🌍 {company.city} {company.country ? `• ${company.country}` : ""}
+    </div>
+  )}
+
+</div>
 
       <div className="stats">
         <div className="card stat">
