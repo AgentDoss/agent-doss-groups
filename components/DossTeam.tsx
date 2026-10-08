@@ -221,7 +221,21 @@ export default function DossTeam() {
             </button>
           ))}
         </nav>
-        <div className="side-foot"><small>{email}</small><a className="ghostButton" href="/entreprise">🏢 Mes entreprises</a><button className="ghostButton" onClick={logout}>Déconnexion</button></div>
+        <div className="side-foot">
+  <small>{email}</small>
+
+  <a className="ghostButton" href="/entreprise">
+    🏢 Mes entreprises
+  </a>
+
+  <a className="ghostButton" href="/prospects">
+    🎯 Prospects
+  </a>
+
+  <button className="ghostButton" onClick={logout}>
+    Déconnexion
+  </button>
+</div>
       </aside>
 
       <main className="content">
