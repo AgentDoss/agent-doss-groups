@@ -672,3 +672,18 @@ button:disabled { opacity: .6; cursor: not-allowed; }
     max-height: 58px;
   }
       }
+.companyMeta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:12px;
+  margin-bottom:18px;
+}
+
+.companyMeta div{
+  padding:8px 12px;
+  border-radius:12px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  font-size:13px;
+}
