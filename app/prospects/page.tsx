@@ -1,4 +1,4 @@
-import Prospects from "@/components/Prospects";
+import Prospects from "../../components/Prospects";
 
 export const metadata = {
   title: "Prospects • AGENT DOSS GROUPS",
