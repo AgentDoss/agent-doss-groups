@@ -56,6 +56,12 @@ export default function DossTeam() {
   id: string;
   name: string;
   activity?: string;
+
+  email?: string;
+  phone?: string;
+  city?: string;
+  country?: string;
+
   lead_count?: number;
   customer_count?: number;
   monthly_revenue?: number;
