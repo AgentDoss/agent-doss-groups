@@ -20,15 +20,21 @@ export default function Prospects() {
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const { data, error } = await getSupabase()
-      .from("doss_prospects")
-      .select("*")
-      alert(
-  JSON.stringify({
-    data,
-    error
-  })
-);
+  const { data, error } = await getSupabase()
+    .from("doss_prospects")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  alert(
+    JSON.stringify({
+      count: data?.length ?? 0,
+      error: error?.message ?? null,
+    })
+  );
+
+  setProspects((data as Prospect[]) ?? []);
+  setLoading(false);
+  }
       .order("created_at", { ascending: false });
 
     console.log("PROSPECTS DATA =", data);
