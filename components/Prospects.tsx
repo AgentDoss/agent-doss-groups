@@ -23,6 +23,12 @@ export default function Prospects() {
     const { data, error } = await getSupabase()
       .from("doss_prospects")
       .select("*")
+      alert(
+  JSON.stringify({
+    data,
+    error
+  })
+);
       .order("created_at", { ascending: false });
 
     console.log("PROSPECTS DATA =", data);
