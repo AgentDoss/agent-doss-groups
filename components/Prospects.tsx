@@ -20,14 +20,13 @@ export default function Prospects() {
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const { data } = await getSupabase()
-      .from("doss_prospects")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await getSupabase()
+  .from("doss_prospects")
+  .select("*")
+  .order("created_at", { ascending: false });
 
-    setProspects((data as Prospect[]) ?? []);
-    setLoading(false);
-  }
+console.log("PROSPECTS DATA =", data);
+console.log("PROSPECTS ERROR =", error);
 
   useEffect(() => {
     load();
