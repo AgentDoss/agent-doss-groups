@@ -129,6 +129,7 @@ export default function DossTeam() {
   );
 
   const [companyId, setCompanyId] = useState("");
+  const [prospectsCount, setProspectsCount] = useState(0);
   const [plan, setPlan] = useState<PlanId>("gratuit");
   const [used, setUsed] = useState(0);
   const [ready, setReady] = useState(false);
@@ -422,7 +423,37 @@ export default function DossTeam() {
   );
 
   const limit = PLANS[plan].monthly;
+useEffect(() => {
+  let cancelled = false;
 
+  async function loadProspectsCount() {
+    try {
+      const { count, error } = await getSupabase()
+        .from("doss_prospects")
+        .select("id", {
+          count: "exact",
+          head: true,
+        });
+
+      if (error) throw error;
+
+      if (!cancelled) {
+        setProspectsCount(count ?? 0);
+      }
+    } catch (error) {
+      console.error(
+        "Erreur de comptage des prospects :",
+        error
+      );
+    }
+  }
+
+  loadProspectsCount();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
   if (!ready) {
     return (
       <div className="boot">
@@ -478,8 +509,8 @@ export default function DossTeam() {
             </a>
 
             <a className="ghostButton" href="/prospects">
-              🎯 Prospects
-            </a>
+  🎯 Prospects ({prospectsCount})
+</a>
 
             <button
               className="ghostButton"
