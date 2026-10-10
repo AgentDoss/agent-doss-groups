@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { getSupabase } from "@/lib/supabase";
-import Logo from "@/components/Logo";
 import MagicBackground from "@/components/MagicBackground";
 
 interface Company {
   id: string;
-
   name: string;
   activity: string;
   offer: string;
@@ -15,26 +13,36 @@ interface Company {
   location: string;
   goals: string;
   notes: string;
-
   website: string;
   email: string;
   phone: string;
-
   address: string;
   city: string;
   country: string;
-
   monthly_revenue: number;
   lead_count: number;
   customer_count: number;
   ai_score: number;
-
   is_active: boolean;
 }
 
+type EditableField =
+  | "name"
+  | "activity"
+  | "offer"
+  | "target"
+  | "location"
+  | "phone"
+  | "email"
+  | "website"
+  | "address"
+  | "city"
+  | "country"
+  | "goals"
+  | "notes";
+
 const EMPTY: Company = {
   id: "",
-
   name: "",
   activity: "",
   offer: "",
@@ -42,48 +50,50 @@ const EMPTY: Company = {
   location: "",
   goals: "",
   notes: "",
-
   website: "",
   email: "",
   phone: "",
-
   address: "",
   city: "",
   country: "",
-
   monthly_revenue: 0,
   lead_count: 0,
   customer_count: 0,
   ai_score: 50,
-
   is_active: false,
 };
 
 const MAX_COMPANIES = 3;
 
 const COLS = `
-id,
-name,
-activity,
-offer,
-target,
-location,
-goals,
-notes,
-website,
-email,
-phone,
-address,
-city,
-country,
-monthly_revenue,
-lead_count,
-customer_count,
-ai_score,
-is_active
+  id,
+  name,
+  activity,
+  offer,
+  target,
+  location,
+  goals,
+  notes,
+  website,
+  email,
+  phone,
+  address,
+  city,
+  country,
+  monthly_revenue,
+  lead_count,
+  customer_count,
+  ai_score,
+  is_active
 `;
 
-const FIELDS = [
+const FIELDS: {
+  key: EditableField;
+  label: string;
+  hint: string;
+  max: number;
+  rows: number;
+}[] = [
   {
     key: "name",
     label: "Nom de l'entreprise",
@@ -91,7 +101,6 @@ const FIELDS = [
     max: 120,
     rows: 1,
   },
-
   {
     key: "activity",
     label: "Activité",
@@ -99,7 +108,6 @@ const FIELDS = [
     max: 600,
     rows: 3,
   },
-
   {
     key: "offer",
     label: "Produits & Services",
@@ -107,7 +115,6 @@ const FIELDS = [
     max: 1000,
     rows: 4,
   },
-
   {
     key: "target",
     label: "Clients visés",
@@ -115,7 +122,6 @@ const FIELDS = [
     max: 600,
     rows: 3,
   },
-
   {
     key: "location",
     label: "Zone géographique",
@@ -123,7 +129,6 @@ const FIELDS = [
     max: 200,
     rows: 1,
   },
-
   {
     key: "phone",
     label: "Téléphone",
@@ -131,7 +136,6 @@ const FIELDS = [
     max: 50,
     rows: 1,
   },
-
   {
     key: "email",
     label: "Email",
@@ -139,7 +143,6 @@ const FIELDS = [
     max: 120,
     rows: 1,
   },
-
   {
     key: "website",
     label: "Site Web",
@@ -147,7 +150,6 @@ const FIELDS = [
     max: 200,
     rows: 1,
   },
-
   {
     key: "address",
     label: "Adresse",
@@ -155,7 +157,6 @@ const FIELDS = [
     max: 300,
     rows: 2,
   },
-
   {
     key: "city",
     label: "Ville",
@@ -163,7 +164,6 @@ const FIELDS = [
     max: 120,
     rows: 1,
   },
-
   {
     key: "country",
     label: "Pays",
@@ -171,7 +171,6 @@ const FIELDS = [
     max: 120,
     rows: 1,
   },
-
   {
     key: "goals",
     label: "Objectifs",
@@ -179,7 +178,6 @@ const FIELDS = [
     max: 800,
     rows: 3,
   },
-
   {
     key: "notes",
     label: "Notes",
@@ -187,7 +185,7 @@ const FIELDS = [
     max: 800,
     rows: 3,
   },
-] as const;
+];
 
 export default function CompanyForm() {
   const [list, setList] = useState<Company[]>([]);
@@ -199,101 +197,234 @@ export default function CompanyForm() {
 
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
-    const pick = (id: string, rows: Company[]) => {
+
+  const pick = useCallback((id: string, rows: Company[]) => {
     setCurrent(id);
     setMsg("");
     setError("");
 
-    const row = rows.find((x) => x.id === id);
-
-    setForm(row ? row : EMPTY);
-  };
-
-  const reload = async (selected?: string) => {
-    const { data, error } = await getSupabase()
-      .from("doss_company")
-      .select(COLS)
-      .order("created_at", { ascending: true });
-
-    if (error) throw error;
-
-    const rows = (data as Company[]) || [];
-
-    setList(rows);
-
-    pick(selected || rows[0]?.id || "new", rows);
-  };
-
-  async function setActive(id: string) {
-    await getSupabase()
-      .from("doss_company")
-      .update({ is_active: false })
-      .neq("id", "");
-
-    await getSupabase()
-      .from("doss_company")
-      .update({ is_active: true })
-      .eq("id", id);
-
-    reload(id);
-  }
-
-  useEffect(() => {
-    (async () => {
-      try {
-        await reload();
-      } catch (e) {
-        setError(
-          e instanceof Error
-            ? e.message
-            : "Erreur chargement entreprise"
-        );
-      } finally {
-        setLoading(false);
-      }
-    })();
+    const row = rows.find((company) => company.id === id);
+    setForm(row ? { ...row } : { ...EMPTY });
   }, []);
 
-  async function save(ev: React.FormEvent) {
-    ev.preventDefault();
+  const reload = useCallback(
+    async (selected?: string) => {
+      const { data, error: queryError } = await getSupabase()
+        .from("doss_company")
+        .select(COLS)
+        .order("created_at", { ascending: true });
+
+      if (queryError) throw queryError;
+
+      const rows = (data ?? []) as Company[];
+
+      setList(rows);
+
+      const requestedId = selected || current;
+      const selectedId = rows.some((company) => company.id === requestedId)
+        ? requestedId
+        : rows[0]?.id || "new";
+
+      pick(selectedId, rows);
+    },
+    [current, pick]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initialize() {
+      try {
+        const { data: authData, error: authError } =
+          await getSupabase().auth.getUser();
+
+        if (authError) throw authError;
+
+        if (!authData.user) {
+          throw new Error("Session expirée. Connecte-toi à nouveau.");
+        }
+
+        const { data, error: queryError } = await getSupabase()
+          .from("doss_company")
+          .select(COLS)
+          .order("created_at", { ascending: true });
+
+        if (queryError) throw queryError;
+
+        if (cancelled) return;
+
+        const rows = (data ?? []) as Company[];
+        setList(rows);
+
+        let preferredId = "new";
+
+        try {
+          preferredId = window.localStorage.getItem("doss_company_id") || "new";
+        } catch {
+          // Le stockage local peut être indisponible.
+        }
+
+        const selectedId = rows.some((company) => company.id === preferredId)
+          ? preferredId
+          : rows.find((company) => company.is_active)?.id ||
+            rows[0]?.id ||
+            "new";
+
+        pick(selectedId, rows);
+      } catch (e) {
+        if (!cancelled) {
+          setError(
+            e instanceof Error
+              ? e.message
+              : "Impossible de charger les entreprises."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void initialize();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pick]);
+
+  async function setActive(id: string) {
+    setMsg("");
+    setError("");
+
+    if (saving) return;
+
+    if (!list.some((company) => company.id === id)) {
+      setError("Entreprise invalide ou inaccessible.");
+      return;
+    }
 
     setSaving(true);
 
     try {
       const sb = getSupabase();
 
-      let id = current;
+      // RLS doit limiter ces opérations aux entreprises autorisées.
+      const { error: deactivateError } = await sb
+        .from("doss_company")
+        .update({ is_active: false })
+        .eq("is_active", true);
 
-      if (current === "new") {
-        const { data, error } = await sb
-          .from("doss_company")
-          .insert({
-            ...form,
-          })
-          .select("id")
-          .single();
+      if (deactivateError) throw deactivateError;
 
-        if (error) throw error;
+      const { data, error: activateError } = await sb
+        .from("doss_company")
+        .update({ is_active: true })
+        .eq("id", id)
+        .select("id");
 
-        id = data.id;
-      } else {
-        const { error } = await sb
-          .from("doss_company")
-          .update({
-            ...form,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", current);
+      if (activateError) throw activateError;
 
-        if (error) throw error;
+      if (!data?.some((company) => company.id === id)) {
+        throw new Error(
+          "L'entreprise n'a pas été activée. Vérifie tes droits d'accès."
+        );
       }
 
       await reload(id);
 
-      setMsg("Entreprise enregistrée avec succès");
+      try {
+        window.localStorage.setItem("doss_company_id", id);
+      } catch {
+        // L'activation en base reste prioritaire.
+      }
+
+      setMsg("Entreprise active mise à jour.");
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "Erreur d'enregistrement"
+        e instanceof Error
+          ? e.message
+          : "Impossible de changer l'entreprise active."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function save(ev: FormEvent<HTMLFormElement>) {
+    ev.preventDefault();
+    setMsg("");
+    setError("");
+
+    if (saving) return;
+
+    const cleanName = form.name.trim();
+
+    if (!cleanName) {
+      setError("Le nom de l'entreprise est obligatoire.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const sb = getSupabase();
+
+      // N'envoie que les champs modifiables.
+      // L'identifiant, les statistiques et le statut actif ne sont
+      // jamais repris depuis le formulaire pour une création.
+      const payload = Object.fromEntries(
+        FIELDS.map(({ key }) => [
+          key,
+          String(form[key] ?? "").trim(),
+        ])
+      ) as Record<EditableField, string>;
+
+      let id: string;
+
+      if (current === "new") {
+        if (list.length >= MAX_COMPANIES) {
+          throw new Error(
+            `La limite de ${MAX_COMPANIES} entreprises est atteinte.`
+          );
+        }
+
+        const { data, error: insertError } = await sb
+          .from("doss_company")
+          .insert(payload)
+          .select("id")
+          .single();
+
+        if (insertError) throw insertError;
+
+        id = data.id;
+      } else {
+        const { data, error: updateError } = await sb
+          .from("doss_company")
+          .update({
+            ...payload,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", current)
+          .select("id");
+
+        if (updateError) throw updateError;
+
+        if (!data?.some((company) => company.id === current)) {
+          throw new Error(
+            "Aucune entreprise modifiée. Vérifie tes droits d'accès."
+          );
+        }
+
+        id = current;
+      }
+
+      await reload(id);
+
+      setMsg("Entreprise enregistrée avec succès.");
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Erreur lors de l'enregistrement."
       );
     } finally {
       setSaving(false);
@@ -301,28 +432,60 @@ export default function CompanyForm() {
   }
 
   async function remove() {
-    if (current === "new") return;
+    setMsg("");
+    setError("");
 
-    if (!confirm("Supprimer cette entreprise ?")) return;
+    if (current === "new" || saving) return;
 
-    const { error } = await getSupabase()
-      .from("doss_company")
-      .delete()
-      .eq("id", current);
+    const company = list.find((item) => item.id === current);
 
-    if (error) {
-      setError(error.message);
+    if (!company) {
+      setError("Entreprise introuvable.");
       return;
     }
 
-    reload();
-               }
-    return (
+    const confirmed = window.confirm(
+      `Supprimer définitivement l'entreprise "${company.name}" ?`
+    );
+
+    if (!confirmed) return;
+
+    setSaving(true);
+
+    try {
+      const { data, error: deleteError } = await getSupabase()
+        .from("doss_company")
+        .delete()
+        .eq("id", current)
+        .select("id");
+
+      if (deleteError) throw deleteError;
+
+      if (!data?.some((item) => item.id === current)) {
+        throw new Error(
+          "Aucune entreprise supprimée. Vérifie tes droits d'accès."
+        );
+      }
+
+      await reload();
+
+      setMsg("Entreprise supprimée.");
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Impossible de supprimer cette entreprise."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
     <>
       <MagicBackground />
 
       <main className="content">
-
         <div className="top">
           <div>
             <div className="eyebrow">AGENT DOSS GROUPS</div>
@@ -335,20 +498,18 @@ export default function CompanyForm() {
         ) : (
           <>
             <div className="coTabs">
-
-              {list.map((c) => (
+              {list.map((company) => (
                 <button
-                  key={c.id}
+                  key={company.id}
                   type="button"
-                  className={`coTab ${current === c.id ? "on" : ""}`}
-                  onClick={() => pick(c.id, list)}
+                  className={`coTab ${current === company.id ? "on" : ""}`}
+                  onClick={() => pick(company.id, list)}
+                  disabled={saving}
                 >
-                  🏢 {c.name || "Sans nom"}
+                  🏢 {company.name || "Sans nom"}
 
-                  {c.is_active && (
-                    <span className="tag">
-                      Active
-                    </span>
+                  {company.is_active && (
+                    <span className="tag">Active</span>
                   )}
                 </button>
               ))}
@@ -358,6 +519,7 @@ export default function CompanyForm() {
                   type="button"
                   className="coTab"
                   onClick={() => pick("new", list)}
+                  disabled={saving}
                 >
                   + Nouvelle
                 </button>
@@ -365,19 +527,13 @@ export default function CompanyForm() {
             </div>
 
             <div className="card pad">
-
-              <h2>
-                {form.name || "Nouvelle entreprise"}
-              </h2>
+              <h2>{form.name || "Nouvelle entreprise"}</h2>
 
               {form.is_active && (
-                <span className="tag">
-                  ✅ Entreprise Active
-                </span>
+                <span className="tag">✅ Entreprise Active</span>
               )}
 
               <div className="stats">
-
                 <div className="card stat">
                   <b>{form.lead_count}</b>
                   <span>Prospects</span>
@@ -397,52 +553,56 @@ export default function CompanyForm() {
                   <b>{form.ai_score}/100</b>
                   <span>Score IA</span>
                 </div>
-
               </div>
 
               <form onSubmit={save}>
+                {FIELDS.map((field) => (
+                  <div className="field" key={field.key}>
+                    <label htmlFor={`company-${field.key}`}>
+                      {field.label}
+                    </label>
 
-                {FIELDS.map((f) => (
-                  <div className="field" key={f.key}>
-
-                    <label>{f.label}</label>
-
-                    {f.rows === 1 ? (
+                    {field.rows === 1 ? (
                       <input
-                        value={(form as any)[f.key]}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            [f.key]: e.target.value,
-                          })
+                        id={`company-${field.key}`}
+                        type="text"
+                        maxLength={field.max}
+                        placeholder={field.hint}
+                        value={form[field.key]}
+                        onChange={(event) =>
+                          setForm((previous) => ({
+                            ...previous,
+                            [field.key]: event.target.value,
+                          }))
                         }
+                        disabled={saving}
                       />
                     ) : (
                       <textarea
-                        rows={f.rows}
-                        value={(form as any)[f.key]}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            [f.key]: e.target.value,
-                          })
+                        id={`company-${field.key}`}
+                        rows={field.rows}
+                        maxLength={field.max}
+                        placeholder={field.hint}
+                        value={form[field.key]}
+                        onChange={(event) =>
+                          setForm((previous) => ({
+                            ...previous,
+                            [field.key]: event.target.value,
+                          }))
                         }
+                        disabled={saving}
                       />
                     )}
-
                   </div>
                 ))}
 
                 <div className="saveBar">
-
                   <button
                     className="primaryButton"
                     type="submit"
                     disabled={saving}
                   >
-                    {saving
-                      ? "Enregistrement..."
-                      : "Enregistrer"}
+                    {saving ? "Enregistrement..." : "Enregistrer"}
                   </button>
 
                   {current !== "new" && (
@@ -450,15 +610,17 @@ export default function CompanyForm() {
                       <button
                         type="button"
                         className="ghostButton"
-                        onClick={() => setActive(current)}
+                        onClick={() => void setActive(current)}
+                        disabled={saving}
                       >
-                        Définir active
+                        {saving ? "Traitement..." : "Définir active"}
                       </button>
 
                       <button
                         type="button"
                         className="dangerBtn"
-                        onClick={remove}
+                        onClick={() => void remove()}
+                        disabled={saving}
                       >
                         Supprimer
                       </button>
@@ -466,16 +628,13 @@ export default function CompanyForm() {
                   )}
                 </div>
 
-                {msg && <p className="ok">{msg}</p>}
-                {error && <p className="err">{error}</p>}
-
+                {msg && <p className="ok" role="status">{msg}</p>}
+                {error && <p className="err" role="alert">{error}</p>}
               </form>
-
             </div>
           </>
         )}
       </main>
     </>
   );
-}
-  
+          }
