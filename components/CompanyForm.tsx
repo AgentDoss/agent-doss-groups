@@ -207,6 +207,26 @@ export default function CompanyForm() {
     setForm(row ? { ...row } : { ...EMPTY });
   }, []);
 
+  // Annule la création et revient à une entreprise existante.
+  const cancelCreation = useCallback(() => {
+    if (saving || current !== "new" || list.length === 0) return;
+
+    let activeCompany = list.find((company) => company.is_active);
+
+    if (!activeCompany) {
+      try {
+        const savedId = window.localStorage.getItem("doss_company_id");
+        activeCompany = list.find((company) => company.id === savedId);
+      } catch {
+        // Le stockage local peut être indisponible.
+      }
+    }
+
+    const companyToRestore = activeCompany || list[0];
+
+    pick(companyToRestore.id, list);
+  }, [current, list, pick, saving]);
+
   const reload = useCallback(
     async (selected?: string) => {
       const { data, error: queryError } = await getSupabase()
@@ -223,7 +243,9 @@ export default function CompanyForm() {
       const requestedId = selected || current;
       const selectedId = rows.some((company) => company.id === requestedId)
         ? requestedId
-        : rows[0]?.id || "new";
+        : rows.find((company) => company.is_active)?.id ||
+          rows[0]?.id ||
+          "new";
 
       pick(selectedId, rows);
     },
@@ -259,7 +281,8 @@ export default function CompanyForm() {
         let preferredId = "new";
 
         try {
-          preferredId = window.localStorage.getItem("doss_company_id") || "new";
+          preferredId =
+            window.localStorage.getItem("doss_company_id") || "new";
         } catch {
           // Le stockage local peut être indisponible.
         }
@@ -307,7 +330,6 @@ export default function CompanyForm() {
     try {
       const sb = getSupabase();
 
-      // RLS doit limiter ces opérations aux entreprises autorisées.
       const { error: deactivateError } = await sb
         .from("doss_company")
         .update({ is_active: false })
@@ -368,14 +390,8 @@ export default function CompanyForm() {
     try {
       const sb = getSupabase();
 
-      // N'envoie que les champs modifiables.
-      // L'identifiant, les statistiques et le statut actif ne sont
-      // jamais repris depuis le formulaire pour une création.
       const payload = Object.fromEntries(
-        FIELDS.map(({ key }) => [
-          key,
-          String(form[key] ?? "").trim(),
-        ])
+        FIELDS.map(({ key }) => [key, String(form[key] ?? "").trim()])
       ) as Record<EditableField, string>;
 
       let id: string;
@@ -487,25 +503,40 @@ export default function CompanyForm() {
 
       <main className="content">
         <div className="top companyTop">
-  <div>
-    <div className="eyebrow companyEyebrow">
-      AGENT DOSS GROUPS · ESPACE ENTREPRISE
-    </div>
-    <h1>Mes entreprises</h1>
-    <p className="companySubtitle">
-      Gérez vos sociétés, vos coordonnées et vos objectifs.
-    </p>
-  </div>
+          <div>
+            <div className="eyebrow companyEyebrow">
+              AGENT DOSS GROUPS · ESPACE ENTREPRISE
+            </div>
 
-  <button
-    type="button"
-    className="companyNewButton"
-    onClick={() => pick("new", list)}
-    disabled={saving || list.length >= MAX_COMPANIES}
-  >
-    ＋ Nouvelle entreprise
-  </button>
-</div>
+            <h1>Mes entreprises</h1>
+
+            <p className="companySubtitle">
+              Gérez vos sociétés, vos coordonnées et vos objectifs.
+            </p>
+          </div>
+
+          <div className="companyHeaderActions">
+            {current === "new" && list.length > 0 && (
+              <button
+                type="button"
+                className="companyCancelButton"
+                onClick={cancelCreation}
+                disabled={saving}
+              >
+                ✕ Annuler la création
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="companyNewButton"
+              onClick={() => pick("new", list)}
+              disabled={saving || list.length >= MAX_COMPANIES}
+            >
+              ＋ Nouvelle entreprise
+            </button>
+          </div>
+        </div>
 
         {loading ? (
           <p>Chargement...</p>
@@ -642,8 +673,17 @@ export default function CompanyForm() {
                   )}
                 </div>
 
-                {msg && <p className="ok" role="status">{msg}</p>}
-                {error && <p className="err" role="alert">{error}</p>}
+                {msg && (
+                  <p className="ok" role="status">
+                    {msg}
+                  </p>
+                )}
+
+                {error && (
+                  <p className="err" role="alert">
+                    {error}
+                  </p>
+                )}
               </form>
             </div>
           </>
@@ -651,4 +691,4 @@ export default function CompanyForm() {
       </main>
     </>
   );
-          }
+  }
