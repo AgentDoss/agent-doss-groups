@@ -907,3 +907,35 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   }
 }
 
+.companyCancelButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 11px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5f2e9;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.companyCancelButton:hover:not(:disabled) {
+  border-color: #d9b66f;
+  background: rgba(217, 182, 111, 0.12);
+}
+
+.companyCancelButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .companyTop .companyCancelButton {
+    width: 100%;
+  }
+}
+
+
