@@ -486,12 +486,26 @@ export default function CompanyForm() {
       <MagicBackground />
 
       <main className="content">
-        <div className="top">
-          <div>
-            <div className="eyebrow">AGENT DOSS GROUPS</div>
-            <h1>Entreprises</h1>
-          </div>
-        </div>
+        <div className="top companyTop">
+  <div>
+    <div className="eyebrow companyEyebrow">
+      AGENT DOSS GROUPS · ESPACE ENTREPRISE
+    </div>
+    <h1>Mes entreprises</h1>
+    <p className="companySubtitle">
+      Gérez vos sociétés, vos coordonnées et vos objectifs.
+    </p>
+  </div>
+
+  <button
+    type="button"
+    className="companyNewButton"
+    onClick={() => pick("new", list)}
+    disabled={saving || list.length >= MAX_COMPANIES}
+  >
+    ＋ Nouvelle entreprise
+  </button>
+</div>
 
         {loading ? (
           <p>Chargement...</p>
