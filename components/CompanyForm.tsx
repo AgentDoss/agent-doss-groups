@@ -194,6 +194,7 @@ export default function CompanyForm() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [prospectCount, setProspectCount] = useState(0);
 
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
@@ -207,24 +208,22 @@ export default function CompanyForm() {
     setForm(row ? { ...row } : { ...EMPTY });
   }, []);
 
-  // Annule la création et revient à une entreprise existante.
+  // Annuler la création sans enregistrer de nouvelle entreprise.
   const cancelCreation = useCallback(() => {
     if (saving || current !== "new" || list.length === 0) return;
 
-    let activeCompany = list.find((company) => company.is_active);
+    let companyToRestore = list.find((company) => company.is_active);
 
-    if (!activeCompany) {
+    if (!companyToRestore) {
       try {
         const savedId = window.localStorage.getItem("doss_company_id");
-        activeCompany = list.find((company) => company.id === savedId);
+        companyToRestore = list.find((company) => company.id === savedId);
       } catch {
         // Le stockage local peut être indisponible.
       }
     }
 
-    const companyToRestore = activeCompany || list[0];
-
-    pick(companyToRestore.id, list);
+    pick((companyToRestore || list[0]).id, list);
   }, [current, list, pick, saving]);
 
   const reload = useCallback(
@@ -237,7 +236,6 @@ export default function CompanyForm() {
       if (queryError) throw queryError;
 
       const rows = (data ?? []) as Company[];
-
       setList(rows);
 
       const requestedId = selected || current;
@@ -252,13 +250,14 @@ export default function CompanyForm() {
     [current, pick]
   );
 
+  // Charger les entreprises de l'utilisateur connecté.
   useEffect(() => {
     let cancelled = false;
 
     async function initialize() {
       try {
-        const { data: authData, error: authError } =
-          await getSupabase().auth.getUser();
+        const sb = getSupabase();
+        const { data: authData, error: authError } = await sb.auth.getUser();
 
         if (authError) throw authError;
 
@@ -266,13 +265,12 @@ export default function CompanyForm() {
           throw new Error("Session expirée. Connecte-toi à nouveau.");
         }
 
-        const { data, error: queryError } = await getSupabase()
+        const { data, error: queryError } = await sb
           .from("doss_company")
           .select(COLS)
           .order("created_at", { ascending: true });
 
         if (queryError) throw queryError;
-
         if (cancelled) return;
 
         const rows = (data ?? []) as Company[];
@@ -313,6 +311,54 @@ export default function CompanyForm() {
       cancelled = true;
     };
   }, [pick]);
+
+  // Compter les prospects de l'entreprise sélectionnée.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProspectCount() {
+      if (loading || current === "new" || !current) {
+        setProspectCount(0);
+        return;
+      }
+
+      try {
+        const sb = getSupabase();
+        const { data: authData, error: authError } = await sb.auth.getUser();
+
+        if (authError) throw authError;
+
+        if (!authData.user) {
+          throw new Error("Session expirée.");
+        }
+
+        const { count, error: countError } = await sb
+          .from("doss_prospects")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", authData.user.id)
+          .eq("company_id", current);
+
+        if (countError) throw countError;
+
+        if (!cancelled) {
+          setProspectCount(count ?? 0);
+        }
+      } catch (e) {
+        console.error("Erreur de comptage des prospects :", e);
+
+        if (!cancelled) {
+          // Valeur de secours si le comptage échoue.
+          setProspectCount(form.lead_count ?? 0);
+        }
+      }
+    }
+
+    void loadProspectCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [current, loading, form.lead_count]);
 
   async function setActive(id: string) {
     setMsg("");
@@ -378,9 +424,7 @@ export default function CompanyForm() {
 
     if (saving) return;
 
-    const cleanName = form.name.trim();
-
-    if (!cleanName) {
+    if (!form.name.trim()) {
       setError("Le nom de l'entreprise est obligatoire.");
       return;
     }
@@ -552,7 +596,6 @@ export default function CompanyForm() {
                   disabled={saving}
                 >
                   🏢 {company.name || "Sans nom"}
-
                   {company.is_active && (
                     <span className="tag">Active</span>
                   )}
@@ -561,8 +604,8 @@ export default function CompanyForm() {
 
               {list.length < MAX_COMPANIES && (
                 <button
-                  type="button"
                   className="coTab"
+                  type="button"
                   onClick={() => pick("new", list)}
                   disabled={saving}
                 >
@@ -580,7 +623,7 @@ export default function CompanyForm() {
 
               <div className="stats">
                 <div className="card stat">
-                  <b>{form.lead_count}</b>
+                  <b>{prospectCount}</b>
                   <span>Prospects</span>
                 </div>
 
@@ -691,4 +734,4 @@ export default function CompanyForm() {
       </main>
     </>
   );
-  }
+}
