@@ -66,32 +66,55 @@ const buttonStyle: React.CSSProperties = {
   minHeight: 44,
 };
 
-const todayISO = () => {
+const followUpCardStyle: React.CSSProperties = {
+  background: "rgba(24,24,32,0.97)",
+  borderRadius: 16,
+  padding: 20,
+  minWidth: 0,
+};
+
+function formatDate(date: string) {
+  const parts = date.split("-");
+  if (parts.length !== 3) return date;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function getLocalDate() {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-};
+}
 
-const formatDate = (date: string) => {
-  const parts = date.split("-");
-  if (parts.length !== 3) return date;
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
-};
+function getWhatsAppNumber(phone: string | null) {
+  if (!phone) return "";
+
+  let number = phone.replace(/\D/g, "");
+
+  if (number.startsWith("00")) {
+    number = number.slice(2);
+  }
+
+  // Pour la Côte d'Ivoire : ajoute l'indicatif 225
+  // aux numéros locaux de 10 chiffres commençant par 0.
+  if (number.length === 10 && number.startsWith("0")) {
+    number = "225" + number.slice(1);
+  }
+
+  return number;
+}
 
 export default function Prospects() {
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyId, setCompanyId] = useState("");
   const [userId, setUserId] = useState("");
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-
   const [editingId, setEditingId] = useState("");
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
@@ -136,7 +159,6 @@ export default function Prospects() {
 
     try {
       const supabase = getSupabase();
-
       const {
         data: { session },
         error: sessionError,
@@ -158,7 +180,8 @@ export default function Prospects() {
 
       if (companyError) {
         setError(
-          "Impossible de charger les entreprises : " + companyError.message
+          "Impossible de charger les entreprises : " +
+            companyError.message
         );
         return;
       }
@@ -173,7 +196,6 @@ export default function Prospects() {
       }
 
       const storedCompanyId = localStorage.getItem("doss_company_id");
-
       const selectedCompany =
         ownedCompanies.find((item) => item.id === storedCompanyId) ??
         ownedCompanies[0];
@@ -218,7 +240,7 @@ export default function Prospects() {
       setLoading(false);
     }
   };
-        
+
   const saveProspect = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
@@ -248,6 +270,7 @@ export default function Prospects() {
 
     try {
       const supabase = getSupabase();
+      const wasEditing = Boolean(editingId);
 
       const values = {
         name: name.trim(),
@@ -273,13 +296,9 @@ export default function Prospects() {
         }
 
         if (!data || data.length === 0) {
-          setError(
-            "Aucune modification enregistrée. Vérifie les droits d’accès du prospect."
-          );
+          setError("Aucune modification enregistrée. Vérifie les droits d’accès.");
           return;
         }
-
-        setNotice("Prospect modifié avec succès.");
       } else {
         const { error: insertError } = await supabase
           .from("doss_prospects")
@@ -294,24 +313,23 @@ export default function Prospects() {
           setError("Création impossible : " + insertError.message);
           return;
         }
-
-        setNotice("Prospect ajouté avec succès.");
       }
 
-      const message = editingId
-        ? "Prospect modifié avec succès."
-        : "Prospect ajouté avec succès.";
-
       resetForm();
-      setNotice(message);
+      setNotice(
+        wasEditing
+          ? "Prospect modifié avec succès."
+          : "Prospect ajouté avec succès."
+      );
+
       await loadProspects(userId, companyId);
     } catch {
-      setError("Une erreur inattendue est survenue lors de l’enregistrement.");
+      setError("Une erreur est survenue lors de l’enregistrement.");
     } finally {
       setSaving(false);
     }
   };
-
+           
   const editProspect = (prospect: Prospect) => {
     if (
       prospect.user_id !== userId ||
@@ -378,9 +396,64 @@ export default function Prospects() {
     await loadProspects(userId, companyId);
   };
 
+  const openWhatsApp = (prospect: Prospect) => {
+    if (
+      prospect.user_id !== userId ||
+      prospect.company_id !== companyId
+    ) {
+      setError("Tu ne peux pas contacter ce prospect.");
+      return;
+    }
+
+    const number = getWhatsAppNumber(prospect.phone);
+
+    if (!number) {
+      setError(
+        "Ce prospect n’a pas de numéro de téléphone. Ajoute son numéro avant d’utiliser WhatsApp."
+      );
+      return;
+    }
+
+    const message =
+      `Bonjour ${prospect.name},\n\n` +
+      "Je vous contacte au nom d’AGENT DOSS GROUPS. " +
+      "Nous accompagnons les entreprises dans la prospection commerciale, " +
+      "le marketing digital et l’automatisation grâce à l’intelligence artificielle.\n\n" +
+      "Seriez-vous disponible pour échanger sur vos besoins et voir comment nous pourrions vous aider ?\n\n" +
+      "Bien cordialement,\nAGENT DOSS GROUPS";
+
+    const url =
+      `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const today = getLocalDate();
+
+  const activeProspects = prospects.filter(
+    (prospect) =>
+      prospect.status !== "Client gagné" &&
+      prospect.status !== "Perdu"
+  );
+
+  const overdueProspects = activeProspects.filter(
+    (prospect) =>
+      !!prospect.next_follow_up &&
+      prospect.next_follow_up < today
+  );
+
+  const todayProspects = activeProspects.filter(
+    (prospect) => prospect.next_follow_up === today
+  );
+
+  const upcomingProspects = activeProspects.filter(
+    (prospect) =>
+      !!prospect.next_follow_up &&
+      prospect.next_follow_up > today
+  );
+
   const filteredProspects = prospects.filter((prospect) => {
     const term = search.toLowerCase().trim();
-
     if (!term) return true;
 
     return [
@@ -389,40 +462,10 @@ export default function Prospects() {
       prospect.email,
       prospect.phone,
       prospect.status,
-    ].some((value) => (value ?? "").toLowerCase().includes(term));
+    ].some((value) =>
+      (value ?? "").toLowerCase().includes(term)
+    );
   });
-
-  const today = todayISO();
-
-  const overdueProspects = prospects.filter(
-    (prospect) =>
-      prospect.next_follow_up !== null &&
-      prospect.next_follow_up < today &&
-      prospect.status !== "Client gagné" &&
-      prospect.status !== "Perdu"
-  );
-
-  const todayProspects = prospects.filter(
-    (prospect) =>
-      prospect.next_follow_up === today &&
-      prospect.status !== "Client gagné" &&
-      prospect.status !== "Perdu"
-  );
-
-  const upcomingProspects = prospects.filter(
-    (prospect) =>
-      prospect.next_follow_up !== null &&
-      prospect.next_follow_up > today &&
-      prospect.status !== "Client gagné" &&
-      prospect.status !== "Perdu"
-  );
-
-  const followUpCardStyle: React.CSSProperties = {
-    borderRadius: 14,
-    padding: 16,
-    minWidth: 0,
-    background: "rgba(24,24,32,0.95)",
-  };
 
   if (loading) {
     return (
@@ -495,13 +538,7 @@ export default function Prospects() {
           CRM sécurisé — Prospects
         </h1>
 
-        <p
-          style={{
-            color: "#b8b8c4",
-            marginTop: 0,
-            marginBottom: 22,
-          }}
-        >
+        <p style={{ color: "#b8b8c4", marginTop: 0, marginBottom: 22 }}>
           Ajoute tes prospects, suis leur statut et planifie les relances.
         </p>
 
@@ -596,7 +633,7 @@ export default function Prospects() {
               type="tel"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
-              placeholder="Numéro de téléphone"
+              placeholder="Numéro de téléphone avec indicatif pays"
               style={inputStyle}
             />
 
@@ -631,13 +668,7 @@ export default function Prospects() {
               style={inputStyle}
             />
 
-            <p
-              style={{
-                color: "#a7a7b4",
-                fontSize: 13,
-                marginTop: 8,
-              }}
-            >
+            <p style={{ color: "#a7a7b4", fontSize: 13, marginTop: 8 }}>
               Laisse la date vide si aucune relance n’est prévue.
             </p>
 
@@ -715,11 +746,12 @@ export default function Prospects() {
             </p>
           )}
         </section>
-        
+             
         <section
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(min(100%, 190px), 1fr))",
             gap: 12,
             marginBottom: 24,
           }}
@@ -927,6 +959,26 @@ export default function Prospects() {
                     >
                       <button
                         type="button"
+                        onClick={() => openWhatsApp(prospect)}
+                        disabled={!prospect.phone}
+                        style={{
+                          ...buttonStyle,
+                          flex: "1 1 100%",
+                          background: prospect.phone
+                            ? "rgba(37,211,102,0.14)"
+                            : "rgba(100,100,100,0.12)",
+                          color: prospect.phone ? "#70e0a0" : "#888888",
+                          borderColor: prospect.phone
+                            ? "rgba(37,211,102,0.4)"
+                            : "rgba(120,120,120,0.3)",
+                          cursor: prospect.phone ? "pointer" : "not-allowed",
+                        }}
+                      >
+                        📲 Relancer sur WhatsApp
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => editProspect(prospect)}
                         style={{
                           ...buttonStyle,
@@ -962,5 +1014,3 @@ export default function Prospects() {
     </main>
   );
                       }
-
-    
