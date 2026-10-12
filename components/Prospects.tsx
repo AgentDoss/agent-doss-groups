@@ -6,494 +6,803 @@ import Logo from "@/components/Logo";
 import MagicBackground from "@/components/MagicBackground";
 
 interface Prospect {
-  id: string;
-  user_id: string;
-  company_id: string;
-  name: string;
-  company: string | null;
-  email: string | null;
-  phone: string | null;
-  status: string | null;
-  score: number | null;
-  created_at?: string;
+id: string;
+user_id: string;
+company_id: string;
+name: string;
+company: string | null;
+email: string | null;
+phone: string | null;
+source?: string | null;
+status: string | null;
+score: number | null;
+created_at?: string | null;
+next_follow_up: string | null;
 }
 
 interface Company {
-  id: string;
-  name: string;
+id: string;
+name: string;
 }
 
+const STATUSES = [
+"Nouveau",
+"À contacter",
+"Contacté",
+"En négociation",
+"Client gagné",
+"Perdu",
+];
+
+const inputStyle: React.CSSProperties = {
+width: "100%",
+boxSizing: "border-box",
+padding: "13px 14px",
+marginTop: 7,
+borderRadius: 10,
+border: "1px solid rgba(212,175,55,0.35)",
+background: "rgba(15,15,20,0.8)",
+color: "#ffffff",
+fontSize: 16,
+minHeight: 46,
+};
+
+const labelStyle: React.CSSProperties = {
+display: "block",
+marginTop: 15,
+color: "#e5c76b",
+fontSize: 15,
+fontWeight: 600,
+};
+
+const buttonStyle: React.CSSProperties = {
+padding: "12px 16px",
+borderRadius: 10,
+border: "1px solid rgba(212,175,55,0.45)",
+fontSize: 15,
+fontWeight: 700,
+cursor: "pointer",
+minHeight: 44,
+};
+
 export default function Prospects() {
-  const [prospects, setProspects] = useState<Prospect[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [companyId, setCompanyId] = useState("");
-  const [userId, setUserId] = useState("");
+const [prospects, setProspects] = useState<Prospect[]>([]);
+const [companies, setCompanies] = useState<Company[]>([]);
+const [companyId, setCompanyId] = useState("");
+const [userId, setUserId] = useState("");
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState("");
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+const [loading, setLoading] = useState(true);
+const [saving, setSaving] = useState(false);
+const [search, setSearch] = useState("");
+const [error, setError] = useState("");
+const [notice, setNotice] = useState("");
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [company, setCompany] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+const [editingId, setEditingId] = useState("");
+const [name, setName] = useState("");
+const [company, setCompany] = useState("");
+const [email, setEmail] = useState("");
+const [phone, setPhone] = useState("");
+const [status, setStatus] = useState("Nouveau");
+const [nextFollowUp, setNextFollowUp] = useState("");
 
-  const sb = getSupabase();
+const loadProspects = useCallback(
+async (ownerId: string, selectedCompanyId: string) => {
+if (!ownerId || !selectedCompanyId) {
+setProspects([]);
+return;
+}
 
-  const loadProspects = useCallback(
-    async (ownerId: string, selectedCompanyId: string) => {
-      setLoading(true);
-      setError("");
+  const supabase = getSupabase();
 
-      try {
-        const { data, error: queryError } = await sb
-          .from("doss_prospects")
-          .select(
-            "id,user_id,company_id,name,company,email,phone,status,score,created_at"
-          )
-          .eq("user_id", ownerId)
-          .eq("company_id", selectedCompanyId)
-          .order("created_at", { ascending: false });
+  const { data, error: loadError } = await supabase
+    .from("doss_prospects")
+    .select(
+      "id,user_id,company_id,name,company,email,phone,source,status,score,created_at,next_follow_up"
+    )
+    .eq("user_id", ownerId)
+    .eq("company_id", selectedCompanyId)
+    .order("created_at", { ascending: false });
 
-        if (queryError) throw queryError;
+  if (loadError) {
+    setError(
+      "Impossible de charger les prospects : " + loadError.message
+    );
+    return;
+  }
 
-        setProspects((data ?? []) as Prospect[]);
-      } catch (e) {
-        setError(
-          e instanceof Error
-            ? e.message
-            : "Impossible de charger les prospects."
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [sb]
+  setProspects((data ?? []) as Prospect[]);
+},
+[]
+
+);
+
+const initialize = useCallback(async () => {
+setLoading(true);
+setError("");
+
+try {
+  const supabase = getSupabase();
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session) {
+    window.location.href = "/login";
+    return;
+  }
+
+  const ownerId = session.user.id;
+  setUserId(ownerId);
+
+  const { data: companyData, error: companyError } = await supabase
+    .from("doss_company")
+    .select("id,name")
+    .eq("user_id", ownerId)
+    .order("created_at", { ascending: true });
+
+  if (companyError) {
+    setError(
+      "Impossible de charger les entreprises : " + companyError.message
+    );
+    return;
+  }
+
+  const ownedCompanies = (companyData ?? []) as Company[];
+  setCompanies(ownedCompanies);
+
+  if (ownedCompanies.length === 0) {
+    setCompanyId("");
+    setProspects([]);
+    return;
+  }
+
+  const storedCompanyId = localStorage.getItem("doss_company_id");
+
+  const selectedCompany =
+    ownedCompanies.find((item) => item.id === storedCompanyId) ??
+    ownedCompanies[0];
+
+  setCompanyId(selectedCompany.id);
+  localStorage.setItem("doss_company_id", selectedCompany.id);
+
+  await loadProspects(ownerId, selectedCompany.id);
+} catch {
+  setError("Une erreur inattendue est survenue pendant le chargement.");
+} finally {
+  setLoading(false);
+}
+
+}, [loadProspects]);
+
+useEffect(() => {
+void initialize();
+}, [initialize]);
+
+const resetForm = () => {
+setEditingId("");
+setName("");
+setCompany("");
+setEmail("");
+setPhone("");
+setStatus("Nouveau");
+setNextFollowUp("");
+setError("");
+setNotice("");
+};
+
+const changeCompany = async (newCompanyId: string) => {
+setCompanyId(newCompanyId);
+localStorage.setItem("doss_company_id", newCompanyId);
+resetForm();
+setSearch("");
+setLoading(true);
+
+try {
+  await loadProspects(userId, newCompanyId);
+} finally {
+  setLoading(false);
+}
+
+};
+
+const saveProspect = async (event: React.FormEvent<HTMLFormElement>) => {
+event.preventDefault();
+setError("");
+setNotice("");
+
+if (!userId || !companyId) {
+  setError("Sélectionne d’abord une entreprise.");
+  return;
+}
+
+if (!name.trim()) {
+  setError("Le nom du prospect est obligatoire.");
+  return;
+}
+
+if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+  setError("L’adresse e-mail n’est pas valide.");
+  return;
+}
+
+setSaving(true);
+
+try {
+  const supabase = getSupabase();
+
+  const values = {
+    name: name.trim(),
+    company: company.trim() || null,
+    email: email.trim() || null,
+    phone: phone.trim() || null,
+    status,
+    next_follow_up: nextFollowUp || null,
+  };
+
+  if (editingId) {
+    const { data, error: updateError } = await supabase
+      .from("doss_prospects")
+      .update(values)
+      .eq("id", editingId)
+      .eq("user_id", userId)
+      .eq("company_id", companyId)
+      .select("id");
+
+    if (updateError) {
+      setError("Modification impossible : " + updateError.message);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      setError(
+        "Aucune modification enregistrée. Vérifie les droits d’accès du prospect."
+      );
+      return;
+    }
+
+    setNotice("Prospect modifié avec succès.");
+  } else {
+    const { error: insertError } = await supabase
+      .from("doss_prospects")
+      .insert({
+        ...values,
+        user_id: userId,
+        company_id: companyId,
+        score: 50,
+      });
+
+    if (insertError) {
+      setError("Création impossible : " + insertError.message);
+      return;
+    }
+
+    setNotice("Prospect ajouté avec succès.");
+  }
+
+  resetForm();
+  setNotice(
+    editingId
+      ? "Prospect modifié avec succès."
+      : "Prospect ajouté avec succès."
   );
 
-  const initialize = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  await loadProspects(userId, companyId);
+} catch {
+  setError("Une erreur inattendue est survenue lors de l’enregistrement.");
+} finally {
+  setSaving(false);
+}
 
-    try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await sb.auth.getSession();
+};
+  const editProspect = (prospect: Prospect) => {
+if (
+prospect.user_id !== userId ||
+prospect.company_id !== companyId
+) {
+setError("Tu ne peux pas modifier ce prospect.");
+return;
+}
 
-      if (sessionError) throw sessionError;
+setEditingId(prospect.id);
+setName(prospect.name ?? "");
+setCompany(prospect.company ?? "");
+setEmail(prospect.email ?? "");
+setPhone(prospect.phone ?? "");
+setStatus(prospect.status || "Nouveau");
+setNextFollowUp(prospect.next_follow_up ?? "");
+setError("");
+setNotice("");
 
-      if (!session) {
-        window.location.replace("/login");
-        return;
-      }
+window.scrollTo({ top: 0, behavior: "smooth" });
 
-      const ownerId = session.user.id;
-      setUserId(ownerId);
+};
 
-      const { data, error: companyError } = await sb
-        .from("doss_company")
-        .select("id,name")
-        .order("created_at", { ascending: true });
+const deleteProspect = async (prospect: Prospect) => {
+if (
+prospect.user_id !== userId ||
+prospect.company_id !== companyId
+) {
+setError("Tu ne peux pas supprimer ce prospect.");
+return;
+}
 
-      if (companyError) throw companyError;
+const confirmed = window.confirm(
+  `Veux-tu vraiment supprimer le prospect « ${prospect.name} » ?`
+);
 
-      const ownedCompanies = (data ?? []) as Company[];
-      setCompanies(ownedCompanies);
+if (!confirmed) return;
 
-      if (ownedCompanies.length === 0) {
-        setCompanyId("");
-        setProspects([]);
-        setError(
-          "Aucune entreprise accessible. Crée ou vérifie ton entreprise avant d'ajouter des prospects."
-        );
-        return;
-      }
+setError("");
+setNotice("");
 
-      let savedCompanyId = "";
+const supabase = getSupabase();
 
-      try {
-        savedCompanyId =
-          localStorage.getItem("doss_company_id") ?? "";
-      } catch {
-        // Le stockage local est facultatif.
-      }
+const { data, error: deleteError } = await supabase
+  .from("doss_prospects")
+  .delete()
+  .eq("id", prospect.id)
+  .eq("user_id", userId)
+  .eq("company_id", companyId)
+  .select("id");
 
-      const selected = ownedCompanies.some(
-        (item) => item.id === savedCompanyId
-      )
-        ? savedCompanyId
-        : ownedCompanies[0].id;
+if (deleteError) {
+  setError("Suppression impossible : " + deleteError.message);
+  return;
+}
 
-      setCompanyId(selected);
+if (!data || data.length === 0) {
+  setError("Le prospect n’a pas été supprimé.");
+  return;
+}
 
-      await loadProspects(ownerId, selected);
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Erreur lors de l'initialisation."
-      );
-      setLoading(false);
-    }
-  }, [sb, loadProspects]);
+if (editingId === prospect.id) resetForm();
 
-  useEffect(() => {
-    void initialize();
-  }, [initialize]);
+setNotice("Prospect supprimé.");
+await loadProspects(userId, companyId);
 
-  async function changeCompany(nextId: string) {
-    if (!companies.some((item) => item.id === nextId)) return;
+};
 
-    setCompanyId(nextId);
-    setEditingId(null);
-    resetForm();
-    setNotice("");
-    setError("");
-    setProspects([]);
+const filteredProspects = prospects.filter((prospect) => {
+const term = search.toLowerCase().trim();
 
-    try {
-      localStorage.setItem("doss_company_id", nextId);
-    } catch {
-      // Le choix reste actif en mémoire.
-    }
+if (!term) return true;
 
-    if (userId) {
-      await loadProspects(userId, nextId);
-    }
-  }
+return [
+  prospect.name,
+  prospect.company,
+  prospect.email,
+  prospect.phone,
+  prospect.status,
+].some((value) => (value ?? "").toLowerCase().includes(term));
 
-  function resetForm() {
-    setName("");
-    setCompany("");
-    setEmail("");
-    setPhone("");
-    setEditingId(null);
-  }
+});
 
-  async function saveProspect() {
-    setError("");
-    setNotice("");
+const formatDate = (date: string) => {
+const parts = date.split("-");
+if (parts.length !== 3) return date;
+return "${parts[2]}/${parts[1]}/${parts[0]}";
+};
 
-    const cleanName = name.trim();
+if (loading) {
+return (
+<main
+style={{
+minHeight: "100vh",
+background: "#0b0b10",
+color: "#e5c76b",
+padding: 24,
+fontSize: 18,
+}}
+>
+Chargement des prospects…
+</main>
+);
+}
 
-    if (!userId || !companyId) {
-      setError("Connecte-toi et sélectionne une entreprise.");
-      return;
-    }
+return (
+<main
+style={{
+minHeight: "100vh",
+background: "#0b0b10",
+color: "#ffffff",
+padding: "clamp(12px, 3vw, 28px)",
+boxSizing: "border-box",
+}}
+>
+<MagicBackground />
 
-    if (!cleanName) {
-      setError("Le nom du prospect est obligatoire.");
-      return;
-    }
+  <div
+    style={{
+      width: "100%",
+      maxWidth: 900,
+      margin: "0 auto",
+      position: "relative",
+      zIndex: 1,
+    }}
+  >
+    <header
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: 12,
+        marginBottom: 24,
+      }}
+    >
+      <Logo />
+      <a
+        href="/doss"
+        style={{
+          color: "#e5c76b",
+          textDecoration: "none",
+          fontSize: 15,
+          fontWeight: 700,
+        }}
+      >
+        ← Tableau de bord
+      </a>
+    </header>
 
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError("L'adresse e-mail n'est pas valide.");
-      return;
-    }
+    <h1
+      style={{
+        color: "#e5c76b",
+        fontSize: "clamp(25px, 5vw, 34px)",
+        marginBottom: 8,
+      }}
+    >
+      CRM sécurisé — Prospects
+    </h1>
 
-    setSaving(true);
+    <p style={{ color: "#b8b8c4", marginTop: 0, marginBottom: 22 }}>
+      Ajoute tes prospects, suis leur statut et planifie les relances.
+    </p>
 
-    try {
-      const values = {
-        name: cleanName,
-        company: company.trim() || null,
-        email: email.trim() || null,
-        phone: phone.trim() || null,
-      };
+    <section
+      style={{
+        background: "rgba(24,24,32,0.95)",
+        border: "1px solid rgba(212,175,55,0.25)",
+        borderRadius: 16,
+        padding: "clamp(14px, 3vw, 22px)",
+        marginBottom: 22,
+      }}
+    >
+      <label style={labelStyle} htmlFor="active-company">
+        Entreprise active
+      </label>
 
-      if (editingId) {
-        const { data, error: updateError } = await sb
-          .from("doss_prospects")
-          .update(values)
-          .eq("id", editingId)
-          .eq("user_id", userId)
-          .eq("company_id", companyId)
-          .select("id");
+      <select
+        id="active-company"
+        value={companyId}
+        onChange={(event) => void changeCompany(event.target.value)}
+        style={inputStyle}
+      >
+        {companies.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+          </option>
+        ))}
+      </select>
+    </section>
 
-        if (updateError) throw updateError;
+    <section
+      style={{
+        background: "rgba(24,24,32,0.95)",
+        border: "1px solid rgba(212,175,55,0.25)",
+        borderRadius: 16,
+        padding: "clamp(14px, 3vw, 22px)",
+        marginBottom: 24,
+      }}
+    >
+      <h2
+        style={{
+          color: "#e5c76b",
+          fontSize: 22,
+          marginTop: 0,
+          marginBottom: 8,
+        }}
+      >
+        {editingId ? "✏️ Modifier le prospect" : "➕ Nouveau prospect"}
+      </h2>
 
-        if (!data?.length) {
-          throw new Error(
-            "Aucune modification effectuée. Vérifie les droits d'accès au prospect."
-          );
-        }
+      <form onSubmit={saveProspect}>
+        <label style={labelStyle} htmlFor="prospect-name">
+          Nom *
+        </label>
+        <input
+          id="prospect-name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Nom du prospect"
+          required
+          style={inputStyle}
+        />
 
-        setNotice("Prospect mis à jour.");
-      } else {
-        const { error: insertError } = await sb
-          .from("doss_prospects")
-          .insert({
-            ...values,
-            user_id: userId,
-            company_id: companyId,
-            status: "Nouveau",
-            score: 50,
-          });
+        <label style={labelStyle} htmlFor="prospect-company">
+          Entreprise du prospect
+        </label>
+        <input
+          id="prospect-company"
+          value={company}
+          onChange={(event) => setCompany(event.target.value)}
+          placeholder="Nom de son entreprise"
+          style={inputStyle}
+        />
 
-        if (insertError) throw insertError;
+        <label style={labelStyle} htmlFor="prospect-email">
+          E-mail
+        </label>
+        <input
+          id="prospect-email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="exemple@entreprise.com"
+          style={inputStyle}
+        />
 
-        setNotice("Prospect ajouté.");
-      }
+        <label style={labelStyle} htmlFor="prospect-phone">
+          Téléphone
+        </label>
+        <input
+          id="prospect-phone"
+          type="tel"
+          value={phone}
+          onChange={(event) => setPhone(event.target.value)}
+          placeholder="Numéro de téléphone"
+          style={inputStyle}
+        />
 
-      resetForm();
-      await loadProspects(userId, companyId);
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Impossible d'enregistrer le prospect."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
+        <label style={labelStyle} htmlFor="prospect-status">
+          Statut commercial
+        </label>
+        <select
+          id="prospect-status"
+          value={status}
+          onChange={(event) => setStatus(event.target.value)}
+          style={inputStyle}
+        >
+          {!STATUSES.includes(status) && (
+            <option value={status}>{status}</option>
+          )}
 
-  async function deleteProspect(id: string) {
-    if (!userId || !companyId) return;
+          {STATUSES.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
 
-    if (!confirm("Confirmer la suppression de ce prospect ?")) return;
+        <label style={labelStyle} htmlFor="prospect-follow-up">
+          📅 Prochaine date de relance
+        </label>
+        <input
+          id="prospect-follow-up"
+          type="date"
+          value={nextFollowUp}
+          onChange={(event) => setNextFollowUp(event.target.value)}
+          style={inputStyle}
+        />
 
-    setError("");
-    setNotice("");
+        <p style={{ color: "#a7a7b4", fontSize: 13, marginTop: 8 }}>
+          Laisse la date vide si aucune relance n’est prévue.
+        </p>
 
-    try {
-      const { data, error: deleteError } = await sb
-        .from("doss_prospects")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", userId)
-        .eq("company_id", companyId)
-        .select("id");
-
-      if (deleteError) throw deleteError;
-
-      if (!data?.length) {
-        throw new Error(
-          "Suppression non effectuée. Vérifie les droits d'accès."
-        );
-      }
-
-      if (editingId === id) resetForm();
-
-      setNotice("Prospect supprimé.");
-      await loadProspects(userId, companyId);
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Impossible de supprimer le prospect."
-      );
-    }
-  }
-
-  function editProspect(p: Prospect) {
-    if (p.user_id !== userId || p.company_id !== companyId) {
-      setError("Tu ne peux pas modifier ce prospect.");
-      return;
-    }
-
-    setEditingId(p.id);
-    setName(p.name ?? "");
-    setCompany(p.company ?? "");
-    setEmail(p.email ?? "");
-    setPhone(p.phone ?? "");
-    setError("");
-    setNotice("");
-  }
-
-  const filtered = prospects.filter((p) => {
-    const txt = search.trim().toLowerCase();
-
-    return (
-      p.name?.toLowerCase().includes(txt) ||
-      p.company?.toLowerCase().includes(txt) ||
-      p.email?.toLowerCase().includes(txt) ||
-      p.phone?.toLowerCase().includes(txt)
-    );
-  });
-
-  return (
-    <>
-      <MagicBackground />
-
-      <main className="formWrap">
-        <div className="formTop">
-          <Logo size={48} />
-          <div>
-            <div className="eyebrow">CRM sécurisé</div>
-            <h1>Prospects</h1>
-          </div>
-        </div>
-
-        {error && (
-          <div className="card pad" role="alert" style={{ marginBottom: 16 }}>
-            <strong>Attention</strong>
-            <p>{error}</p>
-          </div>
-        )}
-
-        {notice && (
-          <div className="card pad" role="status" style={{ marginBottom: 16 }}>
-            {notice}
-          </div>
-        )}
-
-        <section className="card pad" style={{ marginBottom: 20 }}>
-          <label htmlFor="prospect-company">
-            Entreprise active
-          </label>
-
-          <select
-            id="prospect-company"
-            value={companyId}
-            onChange={(e) => void changeCompany(e.target.value)}
-            disabled={loading || companies.length === 0 || saving}
-            style={{ width: "100%", marginTop: 8, marginBottom: 16 }}
-          >
-            {companies.length === 0 && (
-              <option value="">Aucune entreprise disponible</option>
-            )}
-
-            {companies.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-
-          <h3>
-            {editingId ? "✏️ Modifier prospect" : "➕ Nouveau prospect"}
-          </h3>
-
-          <input
-            placeholder="Nom *"
-            value={name}
-            maxLength={150}
-            onChange={(e) => setName(e.target.value)}
-            disabled={saving || !companyId}
-          />
-
-          <input
-            placeholder="Entreprise du prospect"
-            value={company}
-            maxLength={200}
-            onChange={(e) => setCompany(e.target.value)}
-            disabled={saving || !companyId}
-          />
-
-          <input
-            placeholder="E-mail"
-            type="email"
-            value={email}
-            maxLength={254}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={saving || !companyId}
-          />
-
-          <input
-            placeholder="Téléphone"
-            type="tel"
-            value={phone}
-            maxLength={40}
-            onChange={(e) => setPhone(e.target.value)}
-            disabled={saving || !companyId}
-          />
-
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 10,
+            marginTop: 18,
+          }}
+        >
           <button
-            className="sendButton"
-            style={{ marginTop: 12 }}
-            onClick={() => void saveProspect()}
-            disabled={saving || loading || !companyId}
+            type="submit"
+            disabled={saving || !companyId}
+            style={{
+              ...buttonStyle,
+              flex: "1 1 180px",
+              background: "#d4af37",
+              color: "#151515",
+              opacity: saving ? 0.65 : 1,
+            }}
           >
             {saving
-              ? "Enregistrement..."
+              ? "Enregistrement…"
               : editingId
-                ? "Mettre à jour"
-                : "Ajouter"}
+                ? "Enregistrer les modifications"
+                : "Ajouter le prospect"}
           </button>
 
           {editingId && (
             <button
-              className="ghostButton"
-              style={{ marginTop: 8 }}
+              type="button"
               onClick={resetForm}
-              disabled={saving}
+              style={{
+                ...buttonStyle,
+                flex: "1 1 120px",
+                background: "transparent",
+                color: "#e5c76b",
+              }}
             >
-              Annuler la modification
+              Annuler
             </button>
           )}
-        </section>
+        </div>
+      </form>
 
-        <section className="card pad">
-          <input
-            placeholder="🔍 Rechercher un prospect..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ marginBottom: 20 }}
-          />
+      {error && (
+        <p
+          role="alert"
+          style={{
+            marginTop: 16,
+            padding: 12,
+            borderRadius: 10,
+            background: "rgba(180,35,35,0.15)",
+            color: "#ff9b9b",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {error}
+        </p>
+      )}
 
-          <h3>{filtered.length} prospect(s)</h3>
+      {notice && (
+        <p
+          role="status"
+          style={{
+            marginTop: 16,
+            padding: 12,
+            borderRadius: 10,
+            background: "rgba(30,150,90,0.12)",
+            color: "#8ee0ae",
+          }}
+        >
+          {notice}
+        </p>
+      )}
+    </section>
+    <section>
+      <label style={labelStyle} htmlFor="prospect-search">
+        🔍 Rechercher un prospect
+      </label>
+      <input
+        id="prospect-search"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Nom, entreprise, e-mail, téléphone ou statut…"
+        style={{ ...inputStyle, marginBottom: 16 }}
+      />
 
-          {loading ? (
-            <p>Chargement...</p>
-          ) : filtered.length === 0 ? (
-            <p className="muted">
-              Aucun prospect enregistré pour cette entreprise.
-            </p>
-          ) : (
-            filtered.map((p) => (
-              <article
-                key={p.id}
+      <p style={{ color: "#d6d6df", fontSize: 16 }}>
+        <strong>{filteredProspects.length}</strong> prospect(s)
+      </p>
+
+      {filteredProspects.length === 0 ? (
+        <div
+          style={{
+            background: "rgba(24,24,32,0.95)",
+            borderRadius: 14,
+            padding: 20,
+            color: "#b8b8c4",
+          }}
+        >
+          {prospects.length === 0
+            ? "Aucun prospect pour cette entreprise. Ajoute ton premier prospect avec le formulaire."
+            : "Aucun résultat pour cette recherche."}
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 14 }}>
+          {filteredProspects.map((prospect) => (
+            <article
+              key={prospect.id}
+              style={{
+                background: "rgba(24,24,32,0.97)",
+                border: "1px solid rgba(212,175,55,0.25)",
+                borderRadius: 15,
+                padding: "clamp(14px, 3vw, 20px)",
+                minWidth: 0,
+                overflowWrap: "anywhere",
+              }}
+            >
+              <h3
                 style={{
-                  padding: "14px 0",
-                  borderBottom: "1px solid rgba(255,255,255,.08)",
+                  color: "#f1d783",
+                  fontSize: 20,
+                  marginTop: 0,
+                  marginBottom: 10,
                 }}
               >
-                <strong>{p.name}</strong>
+                {prospect.name}
+              </h3>
 
-                {p.company && <div className="muted">{p.company}</div>}
-                {p.email && <div className="muted">📧 {p.email}</div>}
-                {p.phone && <div className="muted">📞 {p.phone}</div>}
+              {prospect.company && (
+                <p style={{ margin: "7px 0", color: "#dedee6" }}>
+                  🏢 {prospect.company}
+                </p>
+              )}
 
-                <div style={{ marginTop: 8 }}>
-                  Score : {p.score ?? 50}
-                </div>
+              {prospect.email && (
+                <p style={{ margin: "7px 0", color: "#dedee6" }}>
+                  📧 {prospect.email}
+                </p>
+              )}
 
-                <div className="muted">{p.status ?? "Nouveau"}</div>
+              {prospect.phone && (
+                <p style={{ margin: "7px 0", color: "#dedee6" }}>
+                  📞 {prospect.phone}
+                </p>
+              )}
 
-                <div
+              <p style={{ margin: "10px 0", color: "#dedee6" }}>
+                ⭐ Score : {prospect.score ?? 50}
+              </p>
+
+              <p
+                style={{
+                  display: "inline-block",
+                  margin: "5px 0 10px",
+                  padding: "7px 11px",
+                  borderRadius: 20,
+                  background: "rgba(212,175,55,0.12)",
+                  color: "#f1d783",
+                  fontSize: 14,
+                  fontWeight: 700,
+                }}
+              >
+                Statut : {prospect.status || "Nouveau"}
+              </p>
+
+              <p style={{ margin: "5px 0 16px", color: "#c8c8d2" }}>
+                📅 Prochaine relance :{" "}
+                {prospect.next_follow_up
+                  ? formatDate(prospect.next_follow_up)
+                  : "Non planifiée"}
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => editProspect(prospect)}
                   style={{
-                    display: "flex",
-                    gap: 10,
-                    marginTop: 10,
-                    flexWrap: "wrap",
+                    ...buttonStyle,
+                    flex: "1 1 120px",
+                    background: "rgba(212,175,55,0.13)",
+                    color: "#f1d783",
                   }}
                 >
-                  <button
-                    className="ghostButton"
-                    onClick={() => editProspect(p)}
-                    disabled={saving}
-                  >
-                    ✏️ Modifier
-                  </button>
+                  ✏️ Modifier
+                </button>
 
-                  <button
-                    className="ghostButton"
-                    onClick={() => void deleteProspect(p.id)}
-                    disabled={saving}
-                  >
-                    🗑️ Supprimer
-                  </button>
-                </div>
-              </article>
-            ))
-          )}
-        </section>
-      </main>
-    </>
-  );
+                <button
+                  type="button"
+                  onClick={() => void deleteProspect(prospect)}
+                  style={{
+                    ...buttonStyle,
+                    flex: "1 1 120px",
+                    background: "rgba(180,35,35,0.12)",
+                    color: "#ff9b9b",
+                    borderColor: "rgba(255,100,100,0.3)",
+                  }}
+                >
+                  🗑️ Supprimer
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  </div>
+</main>
+
+);
 }
