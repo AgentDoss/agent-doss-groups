@@ -229,25 +229,32 @@ export default function DossTeam() {
       );
     }
   }, []);
-
-  const loadUsage = useCallback(async () => {
+const loadUsage = useCallback(async () => {
     try {
       const sb = getSupabase();
 
-      const { data: p } = await sb
+      const { data: p, error: profileError } = await sb
         .from("doss_profiles")
         .select("plan")
         .maybeSingle();
 
+      if (profileError) {
+        throw new Error(
+          "Impossible de charger votre forfait."
+        );
+      }
+
       const pl = (p as { plan?: string } | null)?.plan;
 
-      setPlan(
-        pl === "pro" || pl === "entreprise"
-          ? pl
-          : "gratuit"
-      );
+      if (
+        pl !== "gratuit" &&
+        pl !== "pro" &&
+        pl !== "entreprise"
+      ) {
+        throw new Error("Forfait utilisateur introuvable.");
+      }
 
-      const { count } = await sb
+      const { count, error: usageError } = await sb
         .from("doss_missions")
         .select("id", {
           count: "exact",
@@ -256,9 +263,19 @@ export default function DossTeam() {
         .eq("status", "done")
         .gte("created_at", monthStartISO());
 
+      if (usageError) {
+        throw new Error(
+          "Impossible de charger le compteur des missions."
+        );
+      }
+
+      setPlan(pl);
       setUsed(count ?? 0);
-    } catch {
-      // Informations de quota facultatives
+    } catch (error) {
+      console.error(
+        "Erreur de chargement du forfait et du quota :",
+        error
+      );
     }
   }, []);
 
