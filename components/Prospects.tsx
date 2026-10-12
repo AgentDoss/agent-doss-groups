@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -6,805 +7,960 @@ import Logo from "@/components/Logo";
 import MagicBackground from "@/components/MagicBackground";
 
 interface Prospect {
-id: string;
-user_id: string;
-company_id: string;
-name: string;
-company: string | null;
-email: string | null;
-phone: string | null;
-source?: string | null;
-status: string | null;
-score: number | null;
-created_at?: string | null;
-next_follow_up: string | null;
+  id: string;
+  user_id: string;
+  company_id: string;
+  name: string;
+  company: string | null;
+  email: string | null;
+  phone: string | null;
+  source?: string | null;
+  status: string | null;
+  score: number | null;
+  created_at?: string | null;
+  next_follow_up: string | null;
 }
 
 interface Company {
-id: string;
-name: string;
+  id: string;
+  name: string;
 }
 
 const STATUSES = [
-"Nouveau",
-"À contacter",
-"Contacté",
-"En négociation",
-"Client gagné",
-"Perdu",
+  "Nouveau",
+  "À contacter",
+  "Contacté",
+  "En négociation",
+  "Client gagné",
+  "Perdu",
 ];
 
 const inputStyle: React.CSSProperties = {
-width: "100%",
-boxSizing: "border-box",
-padding: "13px 14px",
-marginTop: 7,
-borderRadius: 10,
-border: "1px solid rgba(212,175,55,0.35)",
-background: "rgba(15,15,20,0.8)",
-color: "#ffffff",
-fontSize: 16,
-minHeight: 46,
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "13px 14px",
+  marginTop: 7,
+  borderRadius: 10,
+  border: "1px solid rgba(212,175,55,0.35)",
+  background: "rgba(15,15,20,0.8)",
+  color: "#ffffff",
+  fontSize: 16,
+  minHeight: 46,
 };
 
 const labelStyle: React.CSSProperties = {
-display: "block",
-marginTop: 15,
-color: "#e5c76b",
-fontSize: 15,
-fontWeight: 600,
+  display: "block",
+  marginTop: 15,
+  color: "#e5c76b",
+  fontSize: 15,
+  fontWeight: 600,
 };
 
 const buttonStyle: React.CSSProperties = {
-padding: "12px 16px",
-borderRadius: 10,
-border: "1px solid rgba(212,175,55,0.45)",
-fontSize: 15,
-fontWeight: 700,
-cursor: "pointer",
-minHeight: 44,
+  padding: "12px 16px",
+  borderRadius: 10,
+  border: "1px solid rgba(212,175,55,0.45)",
+  fontSize: 15,
+  fontWeight: 700,
+  cursor: "pointer",
+  minHeight: 44,
+};
+
+const todayISO = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatDate = (date: string) => {
+  const parts = date.split("-");
+  if (parts.length !== 3) return date;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
 export default function Prospects() {
-const [prospects, setProspects] = useState<Prospect[]>([]);
-const [companies, setCompanies] = useState<Company[]>([]);
-const [companyId, setCompanyId] = useState("");
-const [userId, setUserId] = useState("");
+  const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyId, setCompanyId] = useState("");
+  const [userId, setUserId] = useState("");
 
-const [loading, setLoading] = useState(true);
-const [saving, setSaving] = useState(false);
-const [search, setSearch] = useState("");
-const [error, setError] = useState("");
-const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
-const [editingId, setEditingId] = useState("");
-const [name, setName] = useState("");
-const [company, setCompany] = useState("");
-const [email, setEmail] = useState("");
-const [phone, setPhone] = useState("");
-const [status, setStatus] = useState("Nouveau");
-const [nextFollowUp, setNextFollowUp] = useState("");
+  const [editingId, setEditingId] = useState("");
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [status, setStatus] = useState("Nouveau");
+  const [nextFollowUp, setNextFollowUp] = useState("");
 
-const loadProspects = useCallback(
-async (ownerId: string, selectedCompanyId: string) => {
-if (!ownerId || !selectedCompanyId) {
-setProspects([]);
-return;
-}
+  const loadProspects = useCallback(
+    async (ownerId: string, selectedCompanyId: string) => {
+      if (!ownerId || !selectedCompanyId) {
+        setProspects([]);
+        return;
+      }
 
-  const supabase = getSupabase();
+      const supabase = getSupabase();
 
-  const { data, error: loadError } = await supabase
-    .from("doss_prospects")
-    .select(
-      "id,user_id,company_id,name,company,email,phone,source,status,score,created_at,next_follow_up"
-    )
-    .eq("user_id", ownerId)
-    .eq("company_id", selectedCompanyId)
-    .order("created_at", { ascending: false });
+      const { data, error: loadError } = await supabase
+        .from("doss_prospects")
+        .select(
+          "id,user_id,company_id,name,company,email,phone,source,status,score,created_at,next_follow_up"
+        )
+        .eq("user_id", ownerId)
+        .eq("company_id", selectedCompanyId)
+        .order("created_at", { ascending: false });
 
-  if (loadError) {
-    setError(
-      "Impossible de charger les prospects : " + loadError.message
-    );
-    return;
-  }
+      if (loadError) {
+        setError(
+          "Impossible de charger les prospects : " + loadError.message
+        );
+        return;
+      }
 
-  setProspects((data ?? []) as Prospect[]);
-},
-[]
+      setProspects((data ?? []) as Prospect[]);
+    },
+    []
+  );
 
-);
+  const initialize = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-const initialize = useCallback(async () => {
-setLoading(true);
-setError("");
+    try {
+      const supabase = getSupabase();
 
-try {
-  const supabase = getSupabase();
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        window.location.href = "/login";
+        return;
+      }
 
-  if (sessionError || !session) {
-    window.location.href = "/login";
-    return;
-  }
+      const ownerId = session.user.id;
+      setUserId(ownerId);
 
-  const ownerId = session.user.id;
-  setUserId(ownerId);
+      const { data: companyData, error: companyError } = await supabase
+        .from("doss_company")
+        .select("id,name")
+        .eq("user_id", ownerId)
+        .order("created_at", { ascending: true });
 
-  const { data: companyData, error: companyError } = await supabase
-    .from("doss_company")
-    .select("id,name")
-    .eq("user_id", ownerId)
-    .order("created_at", { ascending: true });
+      if (companyError) {
+        setError(
+          "Impossible de charger les entreprises : " + companyError.message
+        );
+        return;
+      }
 
-  if (companyError) {
-    setError(
-      "Impossible de charger les entreprises : " + companyError.message
-    );
-    return;
-  }
+      const ownedCompanies = (companyData ?? []) as Company[];
+      setCompanies(ownedCompanies);
 
-  const ownedCompanies = (companyData ?? []) as Company[];
-  setCompanies(ownedCompanies);
+      if (ownedCompanies.length === 0) {
+        setCompanyId("");
+        setProspects([]);
+        return;
+      }
 
-  if (ownedCompanies.length === 0) {
-    setCompanyId("");
-    setProspects([]);
-    return;
-  }
+      const storedCompanyId = localStorage.getItem("doss_company_id");
 
-  const storedCompanyId = localStorage.getItem("doss_company_id");
+      const selectedCompany =
+        ownedCompanies.find((item) => item.id === storedCompanyId) ??
+        ownedCompanies[0];
 
-  const selectedCompany =
-    ownedCompanies.find((item) => item.id === storedCompanyId) ??
-    ownedCompanies[0];
+      setCompanyId(selectedCompany.id);
+      localStorage.setItem("doss_company_id", selectedCompany.id);
 
-  setCompanyId(selectedCompany.id);
-  localStorage.setItem("doss_company_id", selectedCompany.id);
+      await loadProspects(ownerId, selectedCompany.id);
+    } catch {
+      setError("Une erreur inattendue est survenue pendant le chargement.");
+    } finally {
+      setLoading(false);
+    }
+  }, [loadProspects]);
 
-  await loadProspects(ownerId, selectedCompany.id);
-} catch {
-  setError("Une erreur inattendue est survenue pendant le chargement.");
-} finally {
-  setLoading(false);
-}
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
 
-}, [loadProspects]);
-
-useEffect(() => {
-void initialize();
-}, [initialize]);
-
-const resetForm = () => {
-setEditingId("");
-setName("");
-setCompany("");
-setEmail("");
-setPhone("");
-setStatus("Nouveau");
-setNextFollowUp("");
-setError("");
-setNotice("");
-};
-
-const changeCompany = async (newCompanyId: string) => {
-setCompanyId(newCompanyId);
-localStorage.setItem("doss_company_id", newCompanyId);
-resetForm();
-setSearch("");
-setLoading(true);
-
-try {
-  await loadProspects(userId, newCompanyId);
-} finally {
-  setLoading(false);
-}
-
-};
-
-const saveProspect = async (event: React.FormEvent<HTMLFormElement>) => {
-event.preventDefault();
-setError("");
-setNotice("");
-
-if (!userId || !companyId) {
-  setError("Sélectionne d’abord une entreprise.");
-  return;
-}
-
-if (!name.trim()) {
-  setError("Le nom du prospect est obligatoire.");
-  return;
-}
-
-if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-  setError("L’adresse e-mail n’est pas valide.");
-  return;
-}
-
-setSaving(true);
-
-try {
-  const supabase = getSupabase();
-
-  const values = {
-    name: name.trim(),
-    company: company.trim() || null,
-    email: email.trim() || null,
-    phone: phone.trim() || null,
-    status,
-    next_follow_up: nextFollowUp || null,
+  const resetForm = () => {
+    setEditingId("");
+    setName("");
+    setCompany("");
+    setEmail("");
+    setPhone("");
+    setStatus("Nouveau");
+    setNextFollowUp("");
+    setError("");
+    setNotice("");
   };
 
-  if (editingId) {
-    const { data, error: updateError } = await supabase
+  const changeCompany = async (newCompanyId: string) => {
+    setCompanyId(newCompanyId);
+    localStorage.setItem("doss_company_id", newCompanyId);
+    resetForm();
+    setSearch("");
+    setLoading(true);
+
+    try {
+      await loadProspects(userId, newCompanyId);
+    } finally {
+      setLoading(false);
+    }
+  };
+        
+  const saveProspect = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+    setError("");
+    setNotice("");
+
+    if (!userId || !companyId) {
+      setError("Sélectionne d’abord une entreprise.");
+      return;
+    }
+
+    if (!name.trim()) {
+      setError("Le nom du prospect est obligatoire.");
+      return;
+    }
+
+    if (
+      email.trim() &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+    ) {
+      setError("L’adresse e-mail n’est pas valide.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const supabase = getSupabase();
+
+      const values = {
+        name: name.trim(),
+        company: company.trim() || null,
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        status,
+        next_follow_up: nextFollowUp || null,
+      };
+
+      if (editingId) {
+        const { data, error: updateError } = await supabase
+          .from("doss_prospects")
+          .update(values)
+          .eq("id", editingId)
+          .eq("user_id", userId)
+          .eq("company_id", companyId)
+          .select("id");
+
+        if (updateError) {
+          setError("Modification impossible : " + updateError.message);
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          setError(
+            "Aucune modification enregistrée. Vérifie les droits d’accès du prospect."
+          );
+          return;
+        }
+
+        setNotice("Prospect modifié avec succès.");
+      } else {
+        const { error: insertError } = await supabase
+          .from("doss_prospects")
+          .insert({
+            ...values,
+            user_id: userId,
+            company_id: companyId,
+            score: 50,
+          });
+
+        if (insertError) {
+          setError("Création impossible : " + insertError.message);
+          return;
+        }
+
+        setNotice("Prospect ajouté avec succès.");
+      }
+
+      const message = editingId
+        ? "Prospect modifié avec succès."
+        : "Prospect ajouté avec succès.";
+
+      resetForm();
+      setNotice(message);
+      await loadProspects(userId, companyId);
+    } catch {
+      setError("Une erreur inattendue est survenue lors de l’enregistrement.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const editProspect = (prospect: Prospect) => {
+    if (
+      prospect.user_id !== userId ||
+      prospect.company_id !== companyId
+    ) {
+      setError("Tu ne peux pas modifier ce prospect.");
+      return;
+    }
+
+    setEditingId(prospect.id);
+    setName(prospect.name ?? "");
+    setCompany(prospect.company ?? "");
+    setEmail(prospect.email ?? "");
+    setPhone(prospect.phone ?? "");
+    setStatus(prospect.status || "Nouveau");
+    setNextFollowUp(prospect.next_follow_up ?? "");
+    setError("");
+    setNotice("");
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const deleteProspect = async (prospect: Prospect) => {
+    if (
+      prospect.user_id !== userId ||
+      prospect.company_id !== companyId
+    ) {
+      setError("Tu ne peux pas supprimer ce prospect.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Veux-tu vraiment supprimer le prospect « ${prospect.name} » ?`
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+    setNotice("");
+
+    const supabase = getSupabase();
+
+    const { data, error: deleteError } = await supabase
       .from("doss_prospects")
-      .update(values)
-      .eq("id", editingId)
+      .delete()
+      .eq("id", prospect.id)
       .eq("user_id", userId)
       .eq("company_id", companyId)
       .select("id");
 
-    if (updateError) {
-      setError("Modification impossible : " + updateError.message);
+    if (deleteError) {
+      setError("Suppression impossible : " + deleteError.message);
       return;
     }
 
     if (!data || data.length === 0) {
-      setError(
-        "Aucune modification enregistrée. Vérifie les droits d’accès du prospect."
-      );
+      setError("Le prospect n’a pas été supprimé.");
       return;
     }
 
-    setNotice("Prospect modifié avec succès.");
-  } else {
-    const { error: insertError } = await supabase
-      .from("doss_prospects")
-      .insert({
-        ...values,
-        user_id: userId,
-        company_id: companyId,
-        score: 50,
-      });
+    if (editingId === prospect.id) resetForm();
 
-    if (insertError) {
-      setError("Création impossible : " + insertError.message);
-      return;
-    }
+    setNotice("Prospect supprimé.");
+    await loadProspects(userId, companyId);
+  };
 
-    setNotice("Prospect ajouté avec succès.");
-  }
+  const filteredProspects = prospects.filter((prospect) => {
+    const term = search.toLowerCase().trim();
 
-  resetForm();
-  setNotice(
-    editingId
-      ? "Prospect modifié avec succès."
-      : "Prospect ajouté avec succès."
+    if (!term) return true;
+
+    return [
+      prospect.name,
+      prospect.company,
+      prospect.email,
+      prospect.phone,
+      prospect.status,
+    ].some((value) => (value ?? "").toLowerCase().includes(term));
+  });
+
+  const today = todayISO();
+
+  const overdueProspects = prospects.filter(
+    (prospect) =>
+      prospect.next_follow_up !== null &&
+      prospect.next_follow_up < today &&
+      prospect.status !== "Client gagné" &&
+      prospect.status !== "Perdu"
   );
 
-  await loadProspects(userId, companyId);
-} catch {
-  setError("Une erreur inattendue est survenue lors de l’enregistrement.");
-} finally {
-  setSaving(false);
-}
+  const todayProspects = prospects.filter(
+    (prospect) =>
+      prospect.next_follow_up === today &&
+      prospect.status !== "Client gagné" &&
+      prospect.status !== "Perdu"
+  );
 
-};
-  const editProspect = (prospect: Prospect) => {
-if (
-prospect.user_id !== userId ||
-prospect.company_id !== companyId
-) {
-setError("Tu ne peux pas modifier ce prospect.");
-return;
-}
+  const upcomingProspects = prospects.filter(
+    (prospect) =>
+      prospect.next_follow_up !== null &&
+      prospect.next_follow_up > today &&
+      prospect.status !== "Client gagné" &&
+      prospect.status !== "Perdu"
+  );
 
-setEditingId(prospect.id);
-setName(prospect.name ?? "");
-setCompany(prospect.company ?? "");
-setEmail(prospect.email ?? "");
-setPhone(prospect.phone ?? "");
-setStatus(prospect.status || "Nouveau");
-setNextFollowUp(prospect.next_follow_up ?? "");
-setError("");
-setNotice("");
+  const followUpCardStyle: React.CSSProperties = {
+    borderRadius: 14,
+    padding: 16,
+    minWidth: 0,
+    background: "rgba(24,24,32,0.95)",
+  };
 
-window.scrollTo({ top: 0, behavior: "smooth" });
-
-};
-
-const deleteProspect = async (prospect: Prospect) => {
-if (
-prospect.user_id !== userId ||
-prospect.company_id !== companyId
-) {
-setError("Tu ne peux pas supprimer ce prospect.");
-return;
-}
-
-const confirmed = window.confirm(
-  `Veux-tu vraiment supprimer le prospect « ${prospect.name} » ?`
-);
-
-if (!confirmed) return;
-
-setError("");
-setNotice("");
-
-const supabase = getSupabase();
-
-const { data, error: deleteError } = await supabase
-  .from("doss_prospects")
-  .delete()
-  .eq("id", prospect.id)
-  .eq("user_id", userId)
-  .eq("company_id", companyId)
-  .select("id");
-
-if (deleteError) {
-  setError("Suppression impossible : " + deleteError.message);
-  return;
-}
-
-if (!data || data.length === 0) {
-  setError("Le prospect n’a pas été supprimé.");
-  return;
-}
-
-if (editingId === prospect.id) resetForm();
-
-setNotice("Prospect supprimé.");
-await loadProspects(userId, companyId);
-
-};
-
-const filteredProspects = prospects.filter((prospect) => {
-const term = search.toLowerCase().trim();
-
-if (!term) return true;
-
-return [
-  prospect.name,
-  prospect.company,
-  prospect.email,
-  prospect.phone,
-  prospect.status,
-].some((value) => (value ?? "").toLowerCase().includes(term));
-
-});
-
-const formatDate = (date: string) => {
-const parts = date.split("-");
-if (parts.length !== 3) return date;
-  return parts.length === 3
-    ? `${parts[2]}/${parts[1]}/${parts[0]}`
-    : date;
-};
-
-if (loading) {
-return (
-<main
-style={{
-minHeight: "100vh",
-background: "#0b0b10",
-color: "#e5c76b",
-padding: 24,
-fontSize: 18,
-}}
->
-Chargement des prospects…
-</main>
-);
-}
-
-return (
-<main
-style={{
-minHeight: "100vh",
-background: "#0b0b10",
-color: "#ffffff",
-padding: "clamp(12px, 3vw, 28px)",
-boxSizing: "border-box",
-}}
->
-<MagicBackground />
-
-  <div
-    style={{
-      width: "100%",
-      maxWidth: 900,
-      margin: "0 auto",
-      position: "relative",
-      zIndex: 1,
-    }}
-  >
-    <header
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: 12,
-        marginBottom: 24,
-      }}
-    >
-      <Logo />
-      <a
-        href="/doss"
+  if (loading) {
+    return (
+      <main
         style={{
+          minHeight: "100vh",
+          background: "#0b0b10",
           color: "#e5c76b",
-          textDecoration: "none",
-          fontSize: 15,
-          fontWeight: 700,
+          padding: 24,
+          fontSize: 18,
         }}
       >
-        ← Tableau de bord
-      </a>
-    </header>
+        Chargement des prospects…
+      </main>
+    );
+  }
 
-    <h1
+  return (
+    <main
       style={{
-        color: "#e5c76b",
-        fontSize: "clamp(25px, 5vw, 34px)",
-        marginBottom: 8,
+        minHeight: "100vh",
+        background: "#0b0b10",
+        color: "#ffffff",
+        padding: "clamp(12px, 3vw, 28px)",
+        boxSizing: "border-box",
       }}
     >
-      CRM sécurisé — Prospects
-    </h1>
+      <MagicBackground />
 
-    <p style={{ color: "#b8b8c4", marginTop: 0, marginBottom: 22 }}>
-      Ajoute tes prospects, suis leur statut et planifie les relances.
-    </p>
-
-    <section
-      style={{
-        background: "rgba(24,24,32,0.95)",
-        border: "1px solid rgba(212,175,55,0.25)",
-        borderRadius: 16,
-        padding: "clamp(14px, 3vw, 22px)",
-        marginBottom: 22,
-      }}
-    >
-      <label style={labelStyle} htmlFor="active-company">
-        Entreprise active
-      </label>
-
-      <select
-        id="active-company"
-        value={companyId}
-        onChange={(event) => void changeCompany(event.target.value)}
-        style={inputStyle}
-      >
-        {companies.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.name}
-          </option>
-        ))}
-      </select>
-    </section>
-
-    <section
-      style={{
-        background: "rgba(24,24,32,0.95)",
-        border: "1px solid rgba(212,175,55,0.25)",
-        borderRadius: 16,
-        padding: "clamp(14px, 3vw, 22px)",
-        marginBottom: 24,
-      }}
-    >
-      <h2
+      <div
         style={{
-          color: "#e5c76b",
-          fontSize: 22,
-          marginTop: 0,
-          marginBottom: 8,
+          width: "100%",
+          maxWidth: 900,
+          margin: "0 auto",
+          position: "relative",
+          zIndex: 1,
         }}
       >
-        {editingId ? "✏️ Modifier le prospect" : "➕ Nouveau prospect"}
-      </h2>
-
-      <form onSubmit={saveProspect}>
-        <label style={labelStyle} htmlFor="prospect-name">
-          Nom *
-        </label>
-        <input
-          id="prospect-name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Nom du prospect"
-          required
-          style={inputStyle}
-        />
-
-        <label style={labelStyle} htmlFor="prospect-company">
-          Entreprise du prospect
-        </label>
-        <input
-          id="prospect-company"
-          value={company}
-          onChange={(event) => setCompany(event.target.value)}
-          placeholder="Nom de son entreprise"
-          style={inputStyle}
-        />
-
-        <label style={labelStyle} htmlFor="prospect-email">
-          E-mail
-        </label>
-        <input
-          id="prospect-email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="exemple@entreprise.com"
-          style={inputStyle}
-        />
-
-        <label style={labelStyle} htmlFor="prospect-phone">
-          Téléphone
-        </label>
-        <input
-          id="prospect-phone"
-          type="tel"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
-          placeholder="Numéro de téléphone"
-          style={inputStyle}
-        />
-
-        <label style={labelStyle} htmlFor="prospect-status">
-          Statut commercial
-        </label>
-        <select
-          id="prospect-status"
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-          style={inputStyle}
-        >
-          {!STATUSES.includes(status) && (
-            <option value={status}>{status}</option>
-          )}
-
-          {STATUSES.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-
-        <label style={labelStyle} htmlFor="prospect-follow-up">
-          📅 Prochaine date de relance
-        </label>
-        <input
-          id="prospect-follow-up"
-          type="date"
-          value={nextFollowUp}
-          onChange={(event) => setNextFollowUp(event.target.value)}
-          style={inputStyle}
-        />
-
-        <p style={{ color: "#a7a7b4", fontSize: 13, marginTop: 8 }}>
-          Laisse la date vide si aucune relance n’est prévue.
-        </p>
-
-        <div
+        <header
           style={{
             display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
             flexWrap: "wrap",
-            gap: 10,
-            marginTop: 18,
+            gap: 12,
+            marginBottom: 24,
           }}
         >
-          <button
-            type="submit"
-            disabled={saving || !companyId}
+          <Logo />
+          <a
+            href="/doss"
             style={{
-              ...buttonStyle,
-              flex: "1 1 180px",
-              background: "#d4af37",
-              color: "#151515",
-              opacity: saving ? 0.65 : 1,
+              color: "#e5c76b",
+              textDecoration: "none",
+              fontSize: 15,
+              fontWeight: 700,
             }}
           >
-            {saving
-              ? "Enregistrement…"
-              : editingId
-                ? "Enregistrer les modifications"
-                : "Ajouter le prospect"}
-          </button>
+            ← Tableau de bord
+          </a>
+        </header>
 
-          {editingId && (
-            <button
-              type="button"
-              onClick={resetForm}
-              style={{
-                ...buttonStyle,
-                flex: "1 1 120px",
-                background: "transparent",
-                color: "#e5c76b",
-              }}
-            >
-              Annuler
-            </button>
-          )}
-        </div>
-      </form>
-
-      {error && (
-        <p
-          role="alert"
+        <h1
           style={{
-            marginTop: 16,
-            padding: 12,
-            borderRadius: 10,
-            background: "rgba(180,35,35,0.15)",
-            color: "#ff9b9b",
-            overflowWrap: "anywhere",
+            color: "#e5c76b",
+            fontSize: "clamp(25px, 5vw, 34px)",
+            marginBottom: 8,
           }}
         >
-          {error}
-        </p>
-      )}
+          CRM sécurisé — Prospects
+        </h1>
 
-      {notice && (
         <p
-          role="status"
           style={{
-            marginTop: 16,
-            padding: 12,
-            borderRadius: 10,
-            background: "rgba(30,150,90,0.12)",
-            color: "#8ee0ae",
+            color: "#b8b8c4",
+            marginTop: 0,
+            marginBottom: 22,
           }}
         >
-          {notice}
+          Ajoute tes prospects, suis leur statut et planifie les relances.
         </p>
-      )}
-    </section>
-    <section>
-      <label style={labelStyle} htmlFor="prospect-search">
-        🔍 Rechercher un prospect
-      </label>
-      <input
-        id="prospect-search"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Nom, entreprise, e-mail, téléphone ou statut…"
-        style={{ ...inputStyle, marginBottom: 16 }}
-      />
 
-      <p style={{ color: "#d6d6df", fontSize: 16 }}>
-        <strong>{filteredProspects.length}</strong> prospect(s)
-      </p>
-
-      {filteredProspects.length === 0 ? (
-        <div
+        <section
           style={{
             background: "rgba(24,24,32,0.95)",
-            borderRadius: 14,
-            padding: 20,
-            color: "#b8b8c4",
+            border: "1px solid rgba(212,175,55,0.25)",
+            borderRadius: 16,
+            padding: "clamp(14px, 3vw, 22px)",
+            marginBottom: 22,
           }}
         >
-          {prospects.length === 0
-            ? "Aucun prospect pour cette entreprise. Ajoute ton premier prospect avec le formulaire."
-            : "Aucun résultat pour cette recherche."}
-        </div>
-      ) : (
-        <div style={{ display: "grid", gap: 14 }}>
-          {filteredProspects.map((prospect) => (
-            <article
-              key={prospect.id}
+          <label style={labelStyle} htmlFor="active-company">
+            Entreprise active
+          </label>
+
+          <select
+            id="active-company"
+            value={companyId}
+            onChange={(event) => void changeCompany(event.target.value)}
+            style={inputStyle}
+          >
+            {companies.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </section>
+
+        <section
+          style={{
+            background: "rgba(24,24,32,0.95)",
+            border: "1px solid rgba(212,175,55,0.25)",
+            borderRadius: 16,
+            padding: "clamp(14px, 3vw, 22px)",
+            marginBottom: 24,
+          }}
+        >
+          <h2
+            style={{
+              color: "#e5c76b",
+              fontSize: 22,
+              marginTop: 0,
+              marginBottom: 8,
+            }}
+          >
+            {editingId ? "✏️ Modifier le prospect" : "➕ Nouveau prospect"}
+          </h2>
+
+          <form onSubmit={saveProspect}>
+            <label style={labelStyle} htmlFor="prospect-name">
+              Nom *
+            </label>
+            <input
+              id="prospect-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Nom du prospect"
+              required
+              style={inputStyle}
+            />
+
+            <label style={labelStyle} htmlFor="prospect-company">
+              Entreprise du prospect
+            </label>
+            <input
+              id="prospect-company"
+              value={company}
+              onChange={(event) => setCompany(event.target.value)}
+              placeholder="Nom de son entreprise"
+              style={inputStyle}
+            />
+
+            <label style={labelStyle} htmlFor="prospect-email">
+              E-mail
+            </label>
+            <input
+              id="prospect-email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="exemple@entreprise.com"
+              style={inputStyle}
+            />
+
+            <label style={labelStyle} htmlFor="prospect-phone">
+              Téléphone
+            </label>
+            <input
+              id="prospect-phone"
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="Numéro de téléphone"
+              style={inputStyle}
+            />
+
+            <label style={labelStyle} htmlFor="prospect-status">
+              Statut commercial
+            </label>
+            <select
+              id="prospect-status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              style={inputStyle}
+            >
+              {!STATUSES.includes(status) && (
+                <option value={status}>{status}</option>
+              )}
+
+              {STATUSES.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+
+            <label style={labelStyle} htmlFor="prospect-follow-up">
+              📅 Prochaine date de relance
+            </label>
+            <input
+              id="prospect-follow-up"
+              type="date"
+              value={nextFollowUp}
+              onChange={(event) => setNextFollowUp(event.target.value)}
+              style={inputStyle}
+            />
+
+            <p
               style={{
-                background: "rgba(24,24,32,0.97)",
-                border: "1px solid rgba(212,175,55,0.25)",
-                borderRadius: 15,
-                padding: "clamp(14px, 3vw, 20px)",
-                minWidth: 0,
+                color: "#a7a7b4",
+                fontSize: 13,
+                marginTop: 8,
+              }}
+            >
+              Laisse la date vide si aucune relance n’est prévue.
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                marginTop: 18,
+              }}
+            >
+              <button
+                type="submit"
+                disabled={saving || !companyId}
+                style={{
+                  ...buttonStyle,
+                  flex: "1 1 180px",
+                  background: "#d4af37",
+                  color: "#151515",
+                  opacity: saving ? 0.65 : 1,
+                }}
+              >
+                {saving
+                  ? "Enregistrement…"
+                  : editingId
+                    ? "Enregistrer les modifications"
+                    : "Ajouter le prospect"}
+              </button>
+
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  style={{
+                    ...buttonStyle,
+                    flex: "1 1 120px",
+                    background: "transparent",
+                    color: "#e5c76b",
+                  }}
+                >
+                  Annuler
+                </button>
+              )}
+            </div>
+          </form>
+
+          {error && (
+            <p
+              role="alert"
+              style={{
+                marginTop: 16,
+                padding: 12,
+                borderRadius: 10,
+                background: "rgba(180,35,35,0.15)",
+                color: "#ff9b9b",
                 overflowWrap: "anywhere",
               }}
             >
-              <h3
-                style={{
-                  color: "#f1d783",
-                  fontSize: 20,
-                  marginTop: 0,
-                  marginBottom: 10,
-                }}
-              >
-                {prospect.name}
-              </h3>
+              {error}
+            </p>
+          )}
 
-              {prospect.company && (
-                <p style={{ margin: "7px 0", color: "#dedee6" }}>
-                  🏢 {prospect.company}
-                </p>
-              )}
+          {notice && (
+            <p
+              role="status"
+              style={{
+                marginTop: 16,
+                padding: 12,
+                borderRadius: 10,
+                background: "rgba(30,150,90,0.12)",
+                color: "#8ee0ae",
+              }}
+            >
+              {notice}
+            </p>
+          )}
+        </section>
+        
+        <section
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))",
+            gap: 12,
+            marginBottom: 24,
+          }}
+        >
+          <article
+            style={{
+              ...followUpCardStyle,
+              border: "1px solid rgba(255,90,90,0.4)",
+            }}
+          >
+            <p style={{ margin: 0, color: "#ff8585", fontWeight: 700 }}>
+              🔴 Relances en retard
+            </p>
+            <p
+              style={{
+                fontSize: 32,
+                fontWeight: 800,
+                margin: "10px 0 4px",
+                color: "#ff8585",
+              }}
+            >
+              {overdueProspects.length}
+            </p>
+            <p style={{ margin: 0, color: "#b8b8c4", fontSize: 13 }}>
+              Date de relance dépassée
+            </p>
+          </article>
 
-              {prospect.email && (
-                <p style={{ margin: "7px 0", color: "#dedee6" }}>
-                  📧 {prospect.email}
-                </p>
-              )}
+          <article
+            style={{
+              ...followUpCardStyle,
+              border: "1px solid rgba(255,196,80,0.4)",
+            }}
+          >
+            <p style={{ margin: 0, color: "#ffd477", fontWeight: 700 }}>
+              🟡 À relancer aujourd’hui
+            </p>
+            <p
+              style={{
+                fontSize: 32,
+                fontWeight: 800,
+                margin: "10px 0 4px",
+                color: "#ffd477",
+              }}
+            >
+              {todayProspects.length}
+            </p>
+            <p style={{ margin: 0, color: "#b8b8c4", fontSize: 13 }}>
+              Relances prévues aujourd’hui
+            </p>
+          </article>
 
-              {prospect.phone && (
-                <p style={{ margin: "7px 0", color: "#dedee6" }}>
-                  📞 {prospect.phone}
-                </p>
-              )}
+          <article
+            style={{
+              ...followUpCardStyle,
+              border: "1px solid rgba(100,220,160,0.35)",
+            }}
+          >
+            <p style={{ margin: 0, color: "#83e3ad", fontWeight: 700 }}>
+              🟢 Relances à venir
+            </p>
+            <p
+              style={{
+                fontSize: 32,
+                fontWeight: 800,
+                margin: "10px 0 4px",
+                color: "#83e3ad",
+              }}
+            >
+              {upcomingProspects.length}
+            </p>
+            <p style={{ margin: 0, color: "#b8b8c4", fontSize: 13 }}>
+              Relances programmées plus tard
+            </p>
+          </article>
+        </section>
 
-              <p style={{ margin: "10px 0", color: "#dedee6" }}>
-                ⭐ Score : {prospect.score ?? 50}
-              </p>
+        <section>
+          <label style={labelStyle} htmlFor="prospect-search">
+            🔍 Rechercher un prospect
+          </label>
+          <input
+            id="prospect-search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Nom, entreprise, e-mail, téléphone ou statut…"
+            style={{ ...inputStyle, marginBottom: 16 }}
+          />
 
-              <p
-                style={{
-                  display: "inline-block",
-                  margin: "5px 0 10px",
-                  padding: "7px 11px",
-                  borderRadius: 20,
-                  background: "rgba(212,175,55,0.12)",
-                  color: "#f1d783",
-                  fontSize: 14,
-                  fontWeight: 700,
-                }}
-              >
-                Statut : {prospect.status || "Nouveau"}
-              </p>
+          <p style={{ color: "#d6d6df", fontSize: 16 }}>
+            <strong>{filteredProspects.length}</strong> prospect(s)
+          </p>
 
-              <p style={{ margin: "5px 0 16px", color: "#c8c8d2" }}>
-                📅 Prochaine relance :{" "}
-                {prospect.next_follow_up
-                  ? formatDate(prospect.next_follow_up)
-                  : "Non planifiée"}
-              </p>
+          {filteredProspects.length === 0 ? (
+            <div
+              style={{
+                background: "rgba(24,24,32,0.95)",
+                borderRadius: 14,
+                padding: 20,
+                color: "#b8b8c4",
+              }}
+            >
+              {prospects.length === 0
+                ? "Aucun prospect pour cette entreprise. Ajoute ton premier prospect avec le formulaire."
+                : "Aucun résultat pour cette recherche."}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 14 }}>
+              {filteredProspects.map((prospect) => {
+                const followUp = prospect.next_follow_up;
+                const isOverdue =
+                  !!followUp &&
+                  followUp < today &&
+                  prospect.status !== "Client gagné" &&
+                  prospect.status !== "Perdu";
+                const isToday =
+                  !!followUp &&
+                  followUp === today &&
+                  prospect.status !== "Client gagné" &&
+                  prospect.status !== "Perdu";
 
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 10,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => editProspect(prospect)}
-                  style={{
-                    ...buttonStyle,
-                    flex: "1 1 120px",
-                    background: "rgba(212,175,55,0.13)",
-                    color: "#f1d783",
-                  }}
-                >
-                  ✏️ Modifier
-                </button>
+                return (
+                  <article
+                    key={prospect.id}
+                    style={{
+                      background: "rgba(24,24,32,0.97)",
+                      border: "1px solid rgba(212,175,55,0.25)",
+                      borderRadius: 15,
+                      padding: "clamp(14px, 3vw, 20px)",
+                      minWidth: 0,
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    <h3
+                      style={{
+                        color: "#f1d783",
+                        fontSize: 20,
+                        marginTop: 0,
+                        marginBottom: 10,
+                      }}
+                    >
+                      {prospect.name}
+                    </h3>
 
-                <button
-                  type="button"
-                  onClick={() => void deleteProspect(prospect)}
-                  style={{
-                    ...buttonStyle,
-                    flex: "1 1 120px",
-                    background: "rgba(180,35,35,0.12)",
-                    color: "#ff9b9b",
-                    borderColor: "rgba(255,100,100,0.3)",
-                  }}
-                >
-                  🗑️ Supprimer
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
-  </div>
-</main>
+                    {prospect.company && (
+                      <p style={{ margin: "7px 0", color: "#dedee6" }}>
+                        🏢 {prospect.company}
+                      </p>
+                    )}
 
-);
-}
+                    {prospect.email && (
+                      <p style={{ margin: "7px 0", color: "#dedee6" }}>
+                        📧 {prospect.email}
+                      </p>
+                    )}
+
+                    {prospect.phone && (
+                      <p style={{ margin: "7px 0", color: "#dedee6" }}>
+                        📞 {prospect.phone}
+                      </p>
+                    )}
+
+                    <p style={{ margin: "10px 0", color: "#dedee6" }}>
+                      ⭐ Score : {prospect.score ?? 50}
+                    </p>
+
+                    <p
+                      style={{
+                        display: "inline-block",
+                        margin: "5px 0 10px",
+                        padding: "7px 11px",
+                        borderRadius: 20,
+                        background: "rgba(212,175,55,0.12)",
+                        color: "#f1d783",
+                        fontSize: 14,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Statut : {prospect.status || "Nouveau"}
+                    </p>
+
+                    <p
+                      style={{
+                        margin: "5px 0 16px",
+                        color: isOverdue
+                          ? "#ff8585"
+                          : isToday
+                            ? "#ffd477"
+                            : "#c8c8d2",
+                        fontWeight: isOverdue || isToday ? 700 : 400,
+                      }}
+                    >
+                      📅 Prochaine relance :{" "}
+                      {followUp ? formatDate(followUp) : "Non planifiée"}
+                      {isOverdue && " — EN RETARD"}
+                      {isToday && " — AUJOURD’HUI"}
+                    </p>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 10,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => editProspect(prospect)}
+                        style={{
+                          ...buttonStyle,
+                          flex: "1 1 120px",
+                          background: "rgba(212,175,55,0.13)",
+                          color: "#f1d783",
+                        }}
+                      >
+                        ✏️ Modifier
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void deleteProspect(prospect)}
+                        style={{
+                          ...buttonStyle,
+                          flex: "1 1 120px",
+                          background: "rgba(180,35,35,0.12)",
+                          color: "#ff9b9b",
+                          borderColor: "rgba(255,100,100,0.3)",
+                        }}
+                      >
+                        🗑️ Supprimer
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+                      }
+
+    
