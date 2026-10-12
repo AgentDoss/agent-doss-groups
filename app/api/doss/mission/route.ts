@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { supabaseForToken } from "@/lib/supabase";
 import { streamLLM } from "@/lib/llm";
-import { directorRoute, getAgentById, buildAgentSystemPrompt } from "@/lib/agents";
-import { PLANS, RATE_PER_MINUTE, monthStartISO, type PlanId } from "@/lib/plans";
+import {
+  directorRoute,
+  getAgentById,
+  buildAgentSystemPrompt,
+} from "@/lib/agents";
+import {
+  PLANS,
+  RATE_PER_MINUTE,
+  monthStartISO,
+  type PlanId,
+} from "@/lib/plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +48,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const { data: u, error: authErr } = await sb.auth.getUser(token);
+  const { data: u, error: authErr } =
+    await sb.auth.getUser(token);
 
   if (authErr || !u?.user) {
     return NextResponse.json(
@@ -71,25 +81,67 @@ export async function POST(req: Request) {
       : "";
 
   // =====================================================
-  // QUOTA UTILISATEUR
+  // QUOTA UTILISATEUR — CONTRÔLE SÉCURISÉ
   // =====================================================
 
-  const { data: prof } = await sb
-    .from("doss_profiles")
-    .select("plan")
-    .maybeSingle();
+  const { data: prof, error: profileError } =
+    await sb
+      .from("doss_profiles")
+      .select("plan")
+      .maybeSingle();
 
-  const rawPlan =
-    (prof as { plan?: string } | null)?.plan;
+  if (profileError) {
+    console.error(
+      "Erreur lecture profil :",
+      profileError.message
+    );
 
-  const plan: PlanId =
-    rawPlan === "pro" || rawPlan === "entreprise"
-      ? rawPlan
-      : "gratuit";
+    return NextResponse.json(
+      {
+        error:
+          "Impossible de vérifier votre abonnement. Réessayez plus tard.",
+      },
+      { status: 503 }
+    );
+  }
 
+  if (!prof) {
+    return NextResponse.json(
+      {
+        error:
+          "Profil de compte introuvable. Contactez le support.",
+      },
+      { status: 403 }
+    );
+  }
+
+  const rawPlan = (
+    prof as { plan: string }
+  ).plan;
+
+  if (
+    rawPlan !== "gratuit" &&
+    rawPlan !== "pro" &&
+    rawPlan !== "entreprise"
+  ) {
+    console.error("Plan invalide :", rawPlan);
+
+    return NextResponse.json(
+      {
+        error:
+          "Votre abonnement est invalide. Contactez le support.",
+      },
+      { status: 403 }
+    );
+  }
+
+  const plan: PlanId = rawPlan;
   const limit = PLANS[plan].monthly;
 
-  const { count: used } = await sb
+  const {
+    count: used,
+    error: usageError,
+  } = await sb
     .from("doss_missions")
     .select("id", {
       count: "exact",
@@ -99,7 +151,22 @@ export async function POST(req: Request) {
     .eq("status", "done")
     .gte("created_at", monthStartISO());
 
-  if ((used ?? 0) >= limit) {
+  if (usageError || used === null) {
+    console.error(
+      "Erreur comptage du quota :",
+      usageError?.message
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Impossible de vérifier votre quota. Réessayez plus tard.",
+      },
+      { status: 503 }
+    );
+  }
+
+  if (used >= limit) {
     return NextResponse.json(
       {
         error: `Quota atteint : ${used}/${limit} missions ce mois-ci (offre ${PLANS[plan].label}).`,
@@ -110,10 +177,13 @@ export async function POST(req: Request) {
   }
 
   // =====================================================
-  // RATE LIMIT UTILISATEUR
+  // RATE LIMIT UTILISATEUR — CONTRÔLE SÉCURISÉ
   // =====================================================
 
-  const { count: recent } = await sb
+  const {
+    count: recent,
+    error: recentError,
+  } = await sb
     .from("doss_missions")
     .select("id", {
       count: "exact",
@@ -125,7 +195,22 @@ export async function POST(req: Request) {
       new Date(Date.now() - 60_000).toISOString()
     );
 
-  if ((recent ?? 0) >= RATE_PER_MINUTE) {
+  if (recentError || recent === null) {
+    console.error(
+      "Erreur vérification fréquence :",
+      recentError?.message
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Impossible de vérifier la fréquence des requêtes. Réessayez plus tard.",
+      },
+      { status: 503 }
+    );
+  }
+
+  if (recent >= RATE_PER_MINUTE) {
     return NextResponse.json(
       {
         error:
@@ -140,19 +225,45 @@ export async function POST(req: Request) {
   // ENTREPRISE ACTIVE
   // =====================================================
 
-  const { data: companyRow } = companyId
-    ? await sb
-        .from("doss_company")
-        .select(COMPANY_COLS)
-        .eq("id", companyId)
-        .eq("user_id", u.user.id)
-        .maybeSingle()
-    : await sb
-        .from("doss_company")
-        .select(COMPANY_COLS)
-        .eq("user_id", u.user.id)
-        .eq("is_active", true)
-        .maybeSingle();
+  const { data: companyRow, error: companyError } =
+    companyId
+      ? await sb
+          .from("doss_company")
+          .select(COMPANY_COLS)
+          .eq("id", companyId)
+          .eq("user_id", u.user.id)
+          .maybeSingle()
+      : await sb
+          .from("doss_company")
+          .select(COMPANY_COLS)
+          .eq("user_id", u.user.id)
+          .eq("is_active", true)
+          .maybeSingle();
+
+  if (companyError) {
+    console.error(
+      "Erreur lecture entreprise :",
+      companyError.message
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Impossible de charger votre entreprise. Réessayez plus tard.",
+      },
+      { status: 503 }
+    );
+  }
+
+  if (companyId && !companyRow) {
+    return NextResponse.json(
+      {
+        error:
+          "Entreprise introuvable ou accès non autorisé.",
+      },
+      { status: 403 }
+    );
+  }
 
   const company =
     companyRow as Record<string, string> | null;
@@ -170,7 +281,9 @@ export async function POST(req: Request) {
   const lines = company
     ? labels.flatMap(([k, l]) =>
         company[k] && String(company[k]).trim()
-          ? [`- ${l} : ${String(company[k]).trim()}`]
+          ? [
+              `- ${l} : ${String(company[k]).trim()}`,
+            ]
           : []
       )
     : [];
@@ -206,7 +319,7 @@ N'invente aucune donnée et suggère à l'utilisateur de compléter sa fiche ent
       : "");
 
   // =====================================================
-  // CREATION MISSION
+  // CRÉATION DE LA MISSION
   // =====================================================
 
   const { data: mission, error: mErr } = await sb
@@ -224,6 +337,11 @@ N'invente aucune donnée et suggère à l'utilisateur de compléter sa fiche ent
     .single();
 
   if (mErr || !mission) {
+    console.error(
+      "Erreur création mission :",
+      mErr?.message
+    );
+
     return NextResponse.json(
       {
         error:
@@ -271,31 +389,54 @@ N'invente aucune donnée et suggère à l'utilisateur de compléter sa fiche ent
             : "Erreur inconnue";
       }
 
-      const status =
-        failure ? "error" : "done";
+      const status = failure
+        ? "error"
+        : "done";
 
-      await sb
+      const { error: updateError } = await sb
         .from("doss_missions")
         .update({ status })
-        .eq("id", mission.id);
+        .eq("id", mission.id)
+        .eq("user_id", u.user.id);
+
+      if (updateError) {
+        console.error(
+          "Erreur mise à jour mission :",
+          updateError.message
+        );
+
+        if (!failure) {
+          failure =
+            "La réponse a été générée, mais son statut n'a pas pu être enregistré.";
+        }
+      }
 
       try {
-        await sb.from("doss_messages").insert([
-          {
-            mission_id: mission.id,
-            user_id: u.user.id,
-            agent_id: "user",
-            role: "user",
-            content: message,
-          },
-          {
-            mission_id: mission.id,
-            user_id: u.user.id,
-            agent_id: route.primaryAgent,
-            role: "agent",
-            content: answer || failure,
-          },
-        ]);
+        const { error: messagesError } = await sb
+          .from("doss_messages")
+          .insert([
+            {
+              mission_id: mission.id,
+              user_id: u.user.id,
+              agent_id: "user",
+              role: "user",
+              content: message,
+            },
+            {
+              mission_id: mission.id,
+              user_id: u.user.id,
+              agent_id: route.primaryAgent,
+              role: "agent",
+              content: answer || failure,
+            },
+          ]);
+
+        if (messagesError) {
+          console.error(
+            "Erreur sauvegarde messages :",
+            messagesError.message
+          );
+        }
       } catch (e) {
         console.error(
           "Erreur sauvegarde messages",
@@ -305,7 +446,7 @@ N'invente aucune donnée et suggère à l'utilisateur de compléter sa fiche ent
 
       send({
         type: "done",
-        status,
+        status: failure ? "error" : status,
         provider,
         missionId: mission.id,
         error: failure || undefined,
@@ -324,4 +465,4 @@ N'invente aucune donnée et suggère à l'utilisateur de compléter sa fiche ent
       "X-Accel-Buffering": "no",
     },
   });
-    }
+}
