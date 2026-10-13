@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { supabaseForToken } from "@/lib/supabase";
 import { streamLLM } from "@/lib/llm";
@@ -6,13 +7,6 @@ import {
   getAgentById,
   buildAgentSystemPrompt,
 } from "@/lib/agents";
-
-import {
-  PLANS,
-  RATE_PER_MINUTE,
-  monthStartISO,
-  type PlanId,
-} from "@/lib/plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,148 +74,7 @@ export async function POST(req: Request) {
     typeof body?.companyId === "string"
       ? body.companyId
       : "";
-
-  // =====================================================
-  // QUOTA UTILISATEUR — CONTRÔLE SÉCURISÉ
-  // =====================================================
-
-  const { data: prof, error: profileError } =
-    await sb
-      .from("doss_profiles")
-      .select("plan")
-      .maybeSingle();
-
-  if (profileError) {
-    console.error(
-      "Erreur lecture profil :",
-      profileError.message
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          "Impossible de vérifier votre abonnement. Réessayez plus tard.",
-      },
-      { status: 503 }
-    );
-  }
-
-  if (!prof) {
-    return NextResponse.json(
-      {
-        error:
-          "Profil de compte introuvable. Contactez le support.",
-      },
-      { status: 403 }
-    );
-  }
-
-  const rawPlan = (
-    prof as { plan: string }
-  ).plan;
-
-  if (
-    rawPlan !== "gratuit" &&
-    rawPlan !== "pro" &&
-    rawPlan !== "entreprise"
-  ) {
-    console.error("Plan invalide :", rawPlan);
-
-    return NextResponse.json(
-      {
-        error:
-          "Votre abonnement est invalide. Contactez le support.",
-      },
-      { status: 403 }
-    );
-  }
-
-  const plan: PlanId = rawPlan;
-  const limit = PLANS[plan].monthly;
-
-  const {
-    count: used,
-    error: usageError,
-  } = await sb
-    .from("doss_missions")
-    .select("id", {
-      count: "exact",
-      head: true,
-    })
-    .eq("user_id", u.user.id)
-    .eq("status", "done")
-    .gte("created_at", monthStartISO());
-
-  if (usageError || used === null) {
-    console.error(
-      "Erreur comptage du quota :",
-      usageError?.message
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          "Impossible de vérifier votre quota. Réessayez plus tard.",
-      },
-      { status: 503 }
-    );
-  }
-
-  if (used >= limit) {
-    return NextResponse.json(
-      {
-        error: `Quota atteint : ${used}/${limit} missions ce mois-ci (offre ${PLANS[plan].label}).`,
-        code: "quota",
-      },
-      { status: 429 }
-    );
-  }
-
-  // =====================================================
-  // RATE LIMIT UTILISATEUR — CONTRÔLE SÉCURISÉ
-  // =====================================================
-
-  const {
-    count: recent,
-    error: recentError,
-  } = await sb
-    .from("doss_missions")
-    .select("id", {
-      count: "exact",
-      head: true,
-    })
-    .eq("user_id", u.user.id)
-    .gte(
-      "created_at",
-      new Date(Date.now() - 60_000).toISOString()
-    );
-
-  if (recentError || recent === null) {
-    console.error(
-      "Erreur vérification fréquence :",
-      recentError?.message
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          "Impossible de vérifier la fréquence des requêtes. Réessayez plus tard.",
-      },
-      { status: 503 }
-    );
-  }
-
-  if (recent >= RATE_PER_MINUTE) {
-    return NextResponse.json(
-      {
-        error:
-          "Trop de requêtes : attendez une minute avant de relancer une mission.",
-        code: "rate",
-      },
-      { status: 429 }
-    );
-  }
-
+  
   // =====================================================
   // ENTREPRISE ACTIVE
   // =====================================================
@@ -267,7 +120,7 @@ export async function POST(req: Request) {
   }
 
   const company =
-    companyRow as Record<string, string> | null;
+    companyRow as Record<string, unknown> | null;
 
   const labels: Array<[string, string]> = [
     ["name", "Nom"],
@@ -280,13 +133,13 @@ export async function POST(req: Request) {
   ];
 
   const lines = company
-    ? labels.flatMap(([k, l]) =>
-        company[k] && String(company[k]).trim()
-          ? [
-              `- ${l} : ${String(company[k]).trim()}`,
-            ]
-          : []
-      )
+    ? labels.flatMap(([k, l]) => {
+        const value = company[k];
+
+        return typeof value === "string" && value.trim()
+          ? [`- ${l} : ${value.trim()}`]
+          : [];
+      })
     : [];
 
   const context = lines.length
@@ -399,7 +252,9 @@ N'invente aucune donnée et suggère à l'utilisateur de compléter sa fiche ent
       case "invalid_message":
       case "invalid_input":
         return NextResponse.json(
-          { error: "Les données de la mission sont invalides." },
+          {
+            error: "Les données de la mission sont invalides.",
+          },
           { status: 400 }
         );
 
@@ -429,7 +284,61 @@ N'invente aucune donnée et suggère à l'utilisateur de compléter sa fiche ent
   }
 
   const mission = { id: result.mission_id };
-      
+
+  // =====================================================
+  // STREAMING DE LA RÉPONSE IA
+  // =====================================================
+
+  const enc = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (o: object) =>
+        controller.enqueue(
+          enc.encode(JSON.stringify(o) + "\n")
+        );
+
+      send({
+        type: "route",
+        route,
+      });
+
+      let answer = "";
+      let provider: string | null = null;
+      let failure = "";
+
+      try {
+        for await (const c of streamLLM(
+          system,
+          message
+        )) {
+          provider = c.provider;
+          answer += c.text;
+
+          send({
+            type: "delta",
+            text: c.text,
+          });
+        }
+      } catch (e) {
+        failure =
+          e instanceof Error
+            ? e.message
+            : "Erreur inconnue";
+
+        console.error(
+          "Erreur génération IA :",
+          failure
+        );
+      }
+
+      const status = failure ? "error" : "done";
+
+      const { error: updateError } = await sb
+        .from("doss_missions")
+        .update({ status })
+        .eq("id", mission.id)
+        .eq("user_id", u.user.id);
 
       if (updateError) {
         console.error(
@@ -471,7 +380,7 @@ N'invente aucune donnée et suggère à l'utilisateur de compléter sa fiche ent
         }
       } catch (e) {
         console.error(
-          "Erreur sauvegarde messages",
+          "Erreur sauvegarde messages :",
           e
         );
       }
@@ -497,4 +406,4 @@ N'invente aucune donnée et suggère à l'utilisateur de compléter sa fiche ent
       "X-Accel-Buffering": "no",
     },
   });
-}
+              }
