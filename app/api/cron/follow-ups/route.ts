@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -55,7 +56,10 @@ export async function GET(request: Request) {
       .limit(500);
 
     if (error) {
-      console.error("Erreur lecture des relances :", error.message);
+      console.error(
+        "Erreur lecture des relances :",
+        error.message
+      );
 
       return NextResponse.json(
         { error: "Impossible de vérifier les relances." },
@@ -80,11 +84,16 @@ export async function GET(request: Request) {
       message: "Vérification terminée. Aucun message envoyé.",
     });
   } catch (error) {
-    console.error("Erreur automatisation CRM :", error);
+    console.error(
+      "Erreur automatisation CRM :",
+      error
+    );
 
     return NextResponse.json(
-      { error: "Erreur interne pendant la vérification." },
+      {
+        error: "Erreur interne pendant la vérification.",
+      },
       { status: 500 }
     );
   }
-          }
+}
