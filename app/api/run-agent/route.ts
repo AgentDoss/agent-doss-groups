@@ -3,15 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import Groq from 'groq-sdk';
 import { Resend } from 'resend';
 
-// Initialisation sécurisée pour TypeScript avec l'assertion d'existence (!)
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const groqApiKey = process.env.GROQ_API_KEY || '';
-const resendApiKey = process.env.RESEND_API_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-const groq = new Groq({ apiKey: groqApiKey });
-const resend = new Resend(resendApiKey);
+// Forcer Next.js à traiter cette route comme une route dynamique
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization');
@@ -20,6 +13,20 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Initialisation dynamique des SDK au moment de l'exécution
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const groqApiKey = process.env.GROQ_API_KEY;
+    const resendApiKey = process.env.RESEND_API_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Variables Supabase manquantes dans Vercel.");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const groq = new Groq({ apiKey: groqApiKey || '' });
+    const resend = new Resend(resendApiKey || '');
+
     // 1. Récupérer un prospect en attente
     const { data: prospects, error: fetchError } = await supabase
       .from('prospects')
@@ -99,4 +106,4 @@ export async function GET(request: Request) {
     console.error('Erreur de l\'agent :', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
-              }
+}
