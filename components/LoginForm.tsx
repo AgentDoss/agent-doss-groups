@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import Logo from './Logo';
 
 export default function LoginForm() {
@@ -18,6 +18,7 @@ export default function LoginForm() {
     setError(null);
 
     try {
+      const supabase = getSupabase();
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -25,6 +26,7 @@ export default function LoginForm() {
 
       if (error) throw error;
       router.push('/doss');
+      router.refresh();
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la connexion');
     } finally {
@@ -157,4 +159,4 @@ export default function LoginForm() {
       </div>
     </div>
   );
-          }
+                                             }
