@@ -124,10 +124,7 @@ export default function DossTeam() {
   const [copied, setCopied] = useState(false);
   const [burst, setBurst] = useState(0);
 
-  const [companies, setCompanies] = useState<Company[] | null>(
-    null
-  );
-
+  const [companies, setCompanies] = useState<Company[] | null>(null);
   const [companyId, setCompanyId] = useState("");
   const [prospectsCount, setProspectsCount] = useState(0);
   const [plan, setPlan] = useState<PlanId>("gratuit");
@@ -141,15 +138,16 @@ export default function DossTeam() {
 
   const loadHistory = useCallback(async () => {
     try {
-      const { data } = await getSupabase()
+      const { data, error } = await getSupabase()
         .from("doss_missions")
         .select("id,message,primary_agent,created_at")
         .order("created_at", { ascending: false })
         .limit(8);
 
+      if (error) throw error;
       setHistory((data as HistoryItem[]) ?? []);
-    } catch {
-      // Historique facultatif
+    } catch (e) {
+      console.error("Erreur historique :", e);
     }
   }, []);
 
@@ -182,10 +180,7 @@ export default function DossTeam() {
         list.map(async (company) => {
           const { count, error: countError } = await sb
             .from("doss_prospects")
-            .select("id", {
-              count: "exact",
-              head: true,
-            })
+            .select("id", { count: "exact", head: true })
             .eq("company_id", company.id);
 
           if (countError) {
@@ -193,7 +188,6 @@ export default function DossTeam() {
               "Erreur de comptage des prospects :",
               countError.message
             );
-
             return {
               ...company,
               prospect_count: company.lead_count ?? 0,
@@ -217,18 +211,16 @@ export default function DossTeam() {
         // Stockage local indisponible
       }
 
-      setCompanyId(
-        enriched.some((company) => company.id === saved)
-          ? saved
-          : enriched[0]?.id ?? ""
-      );
-    } catch (error) {
-      console.error(
-        "Erreur de chargement des entreprises :",
-        error
-      );
+      const nextId = enriched.some((c) => c.id === saved)
+        ? saved
+        : enriched[0]?.id ?? "";
+
+      setCompanyId(nextId);
+    } catch (e) {
+      console.error("Erreur de chargement des entreprises :", e);
     }
   }, []);
+
   const loadUsage = useCallback(async () => {
     try {
       const sb = getSupabase();
@@ -239,9 +231,7 @@ export default function DossTeam() {
         .maybeSingle();
 
       if (profileError) {
-        throw new Error(
-          "Impossible de charger votre forfait."
-        );
+        throw new Error("Impossible de charger votre forfait.");
       }
 
       const pl = (p as { plan?: string } | null)?.plan;
@@ -256,74 +246,76 @@ export default function DossTeam() {
 
       const start = monthStartISO();
 
-      const { count: doneCount, error: doneError } =
-        await sb
-          .from("doss_missions")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq("status", "done")
-          .gte("created_at", start);
+      const { count: doneCount, error: doneError } = await sb
+        .from("doss_missions")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "done")
+        .gte("created_at", start);
 
       if (doneError) {
-        throw new Error(
-          "Impossible de compter les missions terminées."
-        );
+        throw new Error("Impossible de compter les missions terminées.");
       }
 
-      const { count: pendingCount, error: pendingError } =
-        await sb
-          .from("doss_missions")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq("status", "pending")
-          .gte("created_at", start);
+      const { count: pendingCount, error: pendingError } = await sb
+        .from("doss_missions")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending")
+        .gte("created_at", start);
 
       if (pendingError) {
-        throw new Error(
-          "Impossible de compter les missions en cours."
-        );
+        throw new Error("Impossible de compter les missions en cours.");
       }
 
       setPlan(pl);
       setUsed((doneCount ?? 0) + (pendingCount ?? 0));
-    } catch (error) {
-      console.error(
-        "Erreur de chargement du forfait et du quota :",
-        error
-      );
+    } catch (e) {
+      console.error("Erreur de chargement du quota :", e);
     }
-  }, []);```
-
+  }, []);
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+
+    async function initialize() {
       try {
-        const { data } = await getSupabase().auth.getSession();
+        const { data, error: sessionError } =
+          await getSupabase().auth.getSession();
+
+        if (sessionError) throw sessionError;
 
         if (!data.session) {
           window.location.href = "/login";
           return;
         }
 
+        if (cancelled) return;
+
         setEmail(data.session.user.email ?? "");
         setReady(true);
 
-        loadHistory();
-        loadCompanies();
-        loadUsage();
+        await Promise.all([
+          loadHistory(),
+          loadCompanies(),
+          loadUsage(),
+        ]);
       } catch (e) {
-        setError(
-          e instanceof Error
-            ? e.message
-            : "Erreur de configuration"
-        );
-        setReady(true);
+        if (!cancelled) {
+          setError(
+            e instanceof Error
+              ? e.message
+              : "Erreur de configuration"
+          );
+          setReady(true);
+        }
       }
-    })();
+    }
+
+    void initialize();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadHistory, loadCompanies, loadUsage]);
+
   async function send(text = msg) {
     const message = text.trim();
 
@@ -341,17 +333,19 @@ export default function DossTeam() {
 
     const t0 = performance.now();
 
-    setTimeout(
-      () =>
-        resultRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        }),
-      50
-    );
+    setTimeout(() => {
+      resultRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }, 50);
 
     try {
-      const { data } = await getSupabase().auth.getSession();
+      const { data, error: sessionError } =
+        await getSupabase().auth.getSession();
+
+      if (sessionError) throw sessionError;
+
       const token = data.session?.access_token;
 
       if (!token) {
@@ -384,7 +378,10 @@ export default function DossTeam() {
       const handle = (ev: Evt) => {
         if (ev.type === "route") {
           setRoute(ev.route);
-        } else if (ev.type === "delta") {
+          return;
+        }
+
+        if (ev.type === "delta") {
           if (first) {
             first = false;
             setStage(2);
@@ -392,13 +389,14 @@ export default function DossTeam() {
           }
 
           setAnswer((a) => a + ev.text);
-        } else {
-          setProvider(ev.provider);
-
-          if (ev.error) setError(ev.error);
-
-          setStage(3);
+          return;
         }
+
+        setProvider(ev.provider);
+
+        if (ev.error) setError(ev.error);
+
+        setStage(3);
       };
 
       for (;;) {
@@ -414,12 +412,17 @@ export default function DossTeam() {
           const line = buf.slice(0, i).trim();
           buf = buf.slice(i + 1);
 
-          if (line) handle(JSON.parse(line) as Evt);
+          if (line) {
+            handle(JSON.parse(line) as Evt);
+          }
         }
       }
 
-      loadHistory();
-      loadUsage();
+      if (buf.trim()) {
+        handle(JSON.parse(buf.trim()) as Evt);
+      }
+
+      await Promise.all([loadHistory(), loadUsage()]);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Erreur inconnue"
@@ -449,9 +452,7 @@ export default function DossTeam() {
     ? getAgentById(route.primaryAgent)
     : undefined;
 
-  const sel = selected
-    ? getAgentById(selected)
-    : undefined;
+  const sel = selected ? getAgentById(selected) : undefined;
 
   const totalCaps = DOSS_AGENTS.reduce(
     (n, a) => n + a.capabilities.length,
@@ -459,37 +460,33 @@ export default function DossTeam() {
   );
 
   const limit = PLANS[plan].monthly;
-useEffect(() => {
-  let cancelled = false;
 
-  async function loadProspectsCount() {
-    try {
-      const { count, error } = await getSupabase()
-        .from("doss_prospects")
-        .select("id", {
-          count: "exact",
-          head: true,
-        });
+  useEffect(() => {
+    let cancelled = false;
 
-      if (error) throw error;
+    async function loadProspectsCount() {
+      try {
+        const { count, error } = await getSupabase()
+          .from("doss_prospects")
+          .select("id", { count: "exact", head: true });
 
-      if (!cancelled) {
-        setProspectsCount(count ?? 0);
+        if (error) throw error;
+
+        if (!cancelled) {
+          setProspectsCount(count ?? 0);
+        }
+      } catch (e) {
+        console.error("Erreur de comptage des prospects :", e);
       }
-    } catch (error) {
-      console.error(
-        "Erreur de comptage des prospects :",
-        error
-      );
     }
-  }
 
-  loadProspectsCount();
+    void loadProspectsCount();
 
-  return () => {
-    cancelled = true;
-  };
-}, []);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   if (!ready) {
     return (
       <div className="boot">
@@ -523,9 +520,7 @@ useEffect(() => {
                   selected === a.id ? " active" : ""
                 }`}
                 onClick={() =>
-                  setSelected(
-                    selected === a.id ? null : a.id
-                  )
+                  setSelected(selected === a.id ? null : a.id)
                 }
               >
                 <span className="mic">{a.icon}</span>
@@ -545,13 +540,10 @@ useEffect(() => {
             </a>
 
             <a className="ghostButton" href="/prospects">
-  🎯 Prospects ({prospectsCount})
-</a>
+              🎯 Prospects ({prospectsCount})
+            </a>
 
-            <button
-              className="ghostButton"
-              onClick={logout}
-            >
+            <button className="ghostButton" onClick={logout}>
               Déconnexion
             </button>
           </div>
@@ -563,9 +555,7 @@ useEffect(() => {
               <div className="eyebrow">Centre de commande</div>
               <h1>
                 Votre équipe d'experts IA,{" "}
-                <span className="gradText">
-                  prête à agir
-                </span>
+                <span className="gradText">prête à agir</span>
               </h1>
             </div>
 
@@ -621,13 +611,11 @@ useEffect(() => {
               <span>✨</span>
             </div>
 
-            <h2>
-              Confiez une mission. Un expert s'en charge.
-            </h2>
+            <h2>Confiez une mission. Un expert s'en charge.</h2>
 
             <p>
-              DOSS Directeur identifie le bon spécialiste
-              et la réponse s'affiche en direct.
+              DOSS Directeur identifie le bon spécialiste et la
+              réponse s'affiche en direct.
             </p>
 
             <div className="composer">
@@ -638,12 +626,9 @@ useEffect(() => {
                 aria-label="Mission"
                 placeholder="Ex. : Trouve de nouveaux clients et prépare les relances…"
                 onKeyDown={(e) => {
-                  if (
-                    e.key === "Enter" &&
-                    !e.shiftKey
-                  ) {
+                  if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    send();
+                    void send();
                   }
                 }}
               />
@@ -651,7 +636,7 @@ useEffect(() => {
               <span className="sendWrap">
                 <button
                   className="sendButton"
-                  onClick={() => send()}
+                  onClick={() => void send()}
                   disabled={loading}
                 >
                   {loading ? "En cours…" : "Lancer ➜"}
@@ -667,9 +652,7 @@ useEffect(() => {
                       <i
                         key={i}
                         style={
-                          {
-                            "--a": `${i * 30}deg`,
-                          } as React.CSSProperties
+                          { "--a": `${i * 30}deg` } as React.CSSProperties
                         }
                       />
                     ))}
@@ -679,30 +662,23 @@ useEffect(() => {
             </div>
 
             <div className="chips">
-              {EXAMPLES.map((e) => (
+              {EXAMPLES.map((example) => (
                 <button
-                  key={e}
+                  key={example}
                   className="chip"
-                  onClick={() => send(e)}
+                  onClick={() => void send(example)}
                   disabled={loading}
                 >
-                  {e}
+                  {example}
                 </button>
               ))}
             </div>
           </section>
-
           {companies && companies.length === 0 && (
-            <a
-              className="card pad notice"
-              href="/entreprise"
-            >
-              🏢{" "}
-              <strong>
-                Complétez votre fiche entreprise
-              </strong>
-              : vos agents donneront des conseils adaptés
-              à votre activité. <span>Remplir ➜</span>
+            <a className="card pad notice" href="/entreprise">
+              🏢 <strong>Complétez votre fiche entreprise</strong> :
+              vos agents donneront des conseils adaptés à votre
+              activité. <span>Remplir ➜</span>
             </a>
           )}
 
@@ -728,9 +704,7 @@ useEffect(() => {
 
             <div className="card stat">
               <b>
-                {ttft !== null
-                  ? `${ttft.toFixed(1)} s`
-                  : "Direct"}
+                {ttft !== null ? `${ttft.toFixed(1)} s` : "Direct"}
               </b>
               <span>
                 {ttft !== null
@@ -764,35 +738,24 @@ useEffect(() => {
                   className="card pad"
                   style={{ marginTop: 18 }}
                 >
-                  <div className="eyebrow">
-                    Entreprise active
-                  </div>
+                  <div className="eyebrow">Entreprise active</div>
 
                   <h2 style={{ marginTop: 6 }}>
                     🏢 {company.name}
                   </h2>
 
                   {company.activity && (
-                    <p className="muted">
-                      {company.activity}
-                    </p>
+                    <p className="muted">{company.activity}</p>
                   )}
 
                   <div className="companyMeta">
-                    {company.email && (
-                      <div>📧 {company.email}</div>
-                    )}
-
-                    {company.phone && (
-                      <div>📞 {company.phone}</div>
-                    )}
+                    {company.email && <div>📧 {company.email}</div>}
+                    {company.phone && <div>📞 {company.phone}</div>}
 
                     {(company.city || company.country) && (
                       <div>
                         🌍 {company.city}{" "}
-                        {company.country
-                          ? `• ${company.country}`
-                          : ""}
+                        {company.country ? `• ${company.country}` : ""}
                       </div>
                     )}
                   </div>
@@ -809,9 +772,7 @@ useEffect(() => {
                     </div>
 
                     <div className="card stat">
-                      <b>
-                        {company.monthly_revenue ?? 0} €
-                      </b>
+                      <b>{company.monthly_revenue ?? 0} €</b>
                       <span>CA mensuel</span>
                     </div>
 
@@ -823,12 +784,11 @@ useEffect(() => {
                 </section>
               );
             })()}
+
           {route && primary && (
             <section
               ref={resultRef}
-              className={`card pad result${
-                loading ? " busy" : ""
-              }`}
+              className={`card pad result${loading ? " busy" : ""}`}
               style={{
                 ...acc(primary.id),
                 marginTop: 18,
@@ -845,9 +805,7 @@ useEffect(() => {
                   <span
                     key={s}
                     className={`step${
-                      stage > i - 1 && stage !== 0
-                        ? " on"
-                        : ""
+                      stage > i - 1 && stage !== 0 ? " on" : ""
                     }${stage === i ? " cur" : ""}`}
                   >
                     {s}
@@ -856,27 +814,16 @@ useEffect(() => {
               </div>
 
               <div className="rt">
-                <div className="cardIcon big">
-                  {primary.icon}
-                </div>
+                <div className="cardIcon big">{primary.icon}</div>
 
-                <div
-                  style={{
-                    flex: 1,
-                    minWidth: 200,
-                  }}
-                >
-                  <div className="eyebrow">
-                    Expert responsable
-                  </div>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div className="eyebrow">Expert responsable</div>
 
                   <strong style={{ fontSize: 19 }}>
                     {primary.name}
                   </strong>
 
-                  <div className="muted">
-                    {route.reason}
-                  </div>
+                  <div className="muted">{route.reason}</div>
                 </div>
 
                 <span className="chip solid">
@@ -885,24 +832,16 @@ useEffect(() => {
               </div>
 
               {route.supportingAgents.length > 0 && (
-                <p
-                  className="muted"
-                  style={{ margin: "12px 0 0" }}
-                >
+                <p className="muted" style={{ margin: "12px 0 0" }}>
                   En renfort :{" "}
                   {route.supportingAgents
-                    .map(
-                      (id) => getAgentById(id)?.name
-                    )
+                    .map((id) => getAgentById(id)?.name)
                     .join(" · ")}
                 </p>
               )}
 
               {loading && !answer && (
-                <div
-                  className="typing"
-                  aria-label="Rédaction en cours"
-                >
+                <div className="typing" aria-label="Rédaction en cours">
                   <i />
                   <i />
                   <i />
@@ -917,13 +856,8 @@ useEffect(() => {
 
               {answer && !loading && (
                 <div className="resFoot">
-                  <button
-                    className="ghostButton"
-                    onClick={copy}
-                  >
-                    {copied
-                      ? "Copié ✓"
-                      : "Copier la réponse"}
+                  <button className="ghostButton" onClick={() => void copy()}>
+                    {copied ? "Copié ✓" : "Copier la réponse"}
                   </button>
 
                   {provider && (
@@ -948,19 +882,13 @@ useEffect(() => {
           {sel && (
             <section
               className="card pad"
-              style={{
-                ...acc(sel.id),
-                marginTop: 18,
-              }}
+              style={{ ...acc(sel.id), marginTop: 18 }}
             >
               <h3 style={{ margin: 0 }}>
                 {sel.icon} {sel.name}
               </h3>
 
-              <p
-                className="muted"
-                style={{ margin: "6px 0 12px" }}
-              >
+              <p className="muted" style={{ margin: "6px 0 12px" }}>
                 {sel.description}
               </p>
 
@@ -1000,10 +928,7 @@ useEffect(() => {
                 className="card pad agCard"
                 onClick={() => {
                   setSelected(a.id);
-                  window.scrollTo({
-                    top: 0,
-                    behavior: "smooth",
-                  });
+                  window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
               >
                 <div className="cardIcon">{a.icon}</div>
@@ -1022,18 +947,13 @@ useEffect(() => {
                 {history.map((h) => (
                   <div key={h.id} className="hrow">
                     <span>
-                      {getAgentById(h.primary_agent)?.icon ??
-                        "🤖"}
+                      {getAgentById(h.primary_agent)?.icon ?? "🤖"}
                     </span>
 
-                    <span className="hmsg">
-                      {h.message}
-                    </span>
+                    <span className="hmsg">{h.message}</span>
 
                     <small className="muted">
-                      {new Date(
-                        h.created_at
-                      ).toLocaleDateString("fr-FR")}
+                      {new Date(h.created_at).toLocaleDateString("fr-FR")}
                     </small>
                   </div>
                 ))}
@@ -1044,4 +964,4 @@ useEffect(() => {
       </div>
     </>
   );
-                  }
+}
