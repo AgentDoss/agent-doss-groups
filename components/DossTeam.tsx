@@ -229,7 +229,7 @@ export default function DossTeam() {
       );
     }
   }, []);
-const loadUsage = useCallback(async () => {
+  const loadUsage = useCallback(async () => {
     try {
       const sb = getSupabase();
 
@@ -254,30 +254,49 @@ const loadUsage = useCallback(async () => {
         throw new Error("Forfait utilisateur introuvable.");
       }
 
-      const { count, error: usageError } = await sb
-        .from("doss_missions")
-        .select("id", {
-          count: "exact",
-          head: true,
-        })
-        .eq("status", "done")
-        .gte("created_at", monthStartISO());
+      const start = monthStartISO();
 
-      if (usageError) {
+      const { count: doneCount, error: doneError } =
+        await sb
+          .from("doss_missions")
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
+          .eq("status", "done")
+          .gte("created_at", start);
+
+      if (doneError) {
         throw new Error(
-          "Impossible de charger le compteur des missions."
+          "Impossible de compter les missions terminées."
+        );
+      }
+
+      const { count: pendingCount, error: pendingError } =
+        await sb
+          .from("doss_missions")
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
+          .eq("status", "pending")
+          .gte("created_at", start);
+
+      if (pendingError) {
+        throw new Error(
+          "Impossible de compter les missions en cours."
         );
       }
 
       setPlan(pl);
-      setUsed(count ?? 0);
+      setUsed((doneCount ?? 0) + (pendingCount ?? 0));
     } catch (error) {
       console.error(
         "Erreur de chargement du forfait et du quota :",
         error
       );
     }
-  }, []);
+  }, []);```
 
   useEffect(() => {
     (async () => {
