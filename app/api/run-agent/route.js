@@ -1,0 +1,87 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import Groq from 'groq-sdk';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+export async function GET(request) {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+  }
+
+  try {
+    // 1. Récupérer un prospect en attente
+    const { data: prospects, error: fetchError } = await supabase
+      .from('prospects')
+      .select('*')
+      .eq('statut', 'pending')
+      .limit(1);
+
+    if (fetchError) throw fetchError;
+    if (!prospects || prospects.length === 0) {
+      return NextResponse.json({ message: 'Aucun nouveau prospect à contacter.' });
+    }
+
+    const prospect = prospects[0];
+
+    // 2. Étape d'enrichissement (Exemple avec l'API Hunter.io pour vérifier/trouver des infos sur l'entreprise)
+    let infosEnrichies = prospect.entreprise;
+    try {
+      const hunterResponse = await fetch(
+        `https://api.hunter.io/v2/domain-search?domain=${prospect.domaine_entreprise}&api_key=${process.env.HUNTER_API_KEY}`
+      );
+      const hunterData = await hunterResponse.json();
+      
+      if (hunterData.data && hunterData.data.organization) {
+        infosEnrichies = `${prospect.entreprise} (🏢 ${hunterData.data.organization})`;
+      }
+    } catch (enrichError) {
+      console.log('Erreur d\'enrichissement (ignorée) :', enrichError.message);
+    }
+
+    // 3. Générer le message ultra-personnalisé via l'IA avec les données enrichies
+    const chatCompletion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'Tu es un expert en prospection commerciale B2B. Rédige un message court, percutant et courtois (maximum 3 phrases).'
+        },
+        {
+          role: 'user',
+          content: `Rédige un message pour ${prospect.nom}, qui travaille chez ${infosEnrichies}.`
+        }
+      ],
+      temperature: 0.7,
+    });
+
+    const messageGenere = chatCompletion.choices[0]?.message?.content || "Bonjour";
+
+    // 4. Envoyer le message (votre logique d'envoi ici)
+    console.log(`Envoi à ${prospect.email} : \n${messageGenere}`);
+
+    // 5. Mettre à jour le statut du prospect dans Supabase
+    const { error: updateError } = await supabase
+      .from('prospects')
+      .update({ statut: 'sent' })
+      .eq('id', prospect.id);
+
+    if (updateError) throw updateError;
+
+    return NextResponse.json({
+      success: true,
+      prospect: prospect.email,
+      messageGenere,
+    });
+
+  } catch (error) {
+    console.error('Erreur :', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+  }
