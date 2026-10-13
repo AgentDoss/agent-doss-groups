@@ -1,15 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import Groq from 'groq-sdk';
+import { Resend } from 'resend';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Initialisation sécurisée pour TypeScript avec l'assertion d'existence (!)
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const groqApiKey = process.env.GROQ_API_KEY || '';
+const resendApiKey = process.env.RESEND_API_KEY || '';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const supabase = createClient(supabaseUrl, supabaseKey);
+const groq = new Groq({ apiKey: groqApiKey });
+const resend = new Resend(resendApiKey);
 
-export async function GET(request) {
+export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
@@ -30,32 +34,33 @@ export async function GET(request) {
 
     const prospect = prospects[0];
 
-    // 2. Étape d'enrichissement (Exemple avec l'API Hunter.io pour vérifier/trouver des infos sur l'entreprise)
+    // 2. Étape d'enrichissement optionnelle
     let infosEnrichies = prospect.entreprise;
     try {
-      const hunterResponse = await fetch(
-        `https://api.hunter.io/v2/domain-search?domain=${prospect.domaine_entreprise}&api_key=${process.env.HUNTER_API_KEY}`
-      );
-      const hunterData = await hunterResponse.json();
-      
-      if (hunterData.data && hunterData.data.organization) {
-        infosEnrichies = `${prospect.entreprise} (🏢 ${hunterData.data.organization})`;
+      if (prospect.domaine_entreprise && process.env.HUNTER_API_KEY) {
+        const hunterResponse = await fetch(
+          `https://api.hunter.io/v2/domain-search?domain=${prospect.domaine_entreprise}&api_key=${process.env.HUNTER_API_KEY}`
+        );
+        const hunterData = await hunterResponse.json();
+        if (hunterData.data && hunterData.data.organization) {
+          infosEnrichies = `${prospect.entreprise} (${hunterData.data.organization})`;
+        }
       }
-    } catch (enrichError) {
+    } catch (enrichError: any) {
       console.log('Erreur d\'enrichissement (ignorée) :', enrichError.message);
     }
 
-    // 3. Générer le message ultra-personnalisé via l'IA avec les données enrichies
+    // 3. Générer le message via Groq
     const chatCompletion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
         {
           role: 'system',
-          content: 'Tu es un expert en prospection commerciale B2B. Rédige un message court, percutant et courtois (maximum 3 phrases).'
+          content: 'Tu es un expert en prospection commerciale B2B. Rédige un e-mail court, percutant et courtois (maximum 4 phrases).'
         },
         {
           role: 'user',
-          content: `Rédige un message pour ${prospect.nom}, qui travaille chez ${infosEnrichies}.`
+          content: `Rédige un e-mail de prospection pour ${prospect.nom}, qui travaille chez ${infosEnrichies}.`
         }
       ],
       temperature: 0.7,
@@ -63,10 +68,19 @@ export async function GET(request) {
 
     const messageGenere = chatCompletion.choices[0]?.message?.content || "Bonjour";
 
-    // 4. Envoyer le message (votre logique d'envoi ici)
-    console.log(`Envoi à ${prospect.email} : \n${messageGenere}`);
+    // 4. Envoyer l'e-mail via Resend
+    const { data: emailData, error: emailError } = await resend.emails.send({
+      from: 'Acme <onboarding@resend.dev>',
+      to: [prospect.email],
+      subject: `Proposition de collaboration pour ${prospect.entreprise}`,
+      text: messageGenere,
+    });
 
-    // 5. Mettre à jour le statut du prospect dans Supabase
+    if (emailError) {
+      throw new Error(`Erreur d'envoi Resend : ${emailError.message}`);
+    }
+
+    // 5. Mettre à jour le statut dans Supabase
     const { error: updateError } = await supabase
       .from('prospects')
       .update({ statut: 'sent' })
@@ -78,10 +92,11 @@ export async function GET(request) {
       success: true,
       prospect: prospect.email,
       messageGenere,
+      emailId: emailData?.id,
     });
 
-  } catch (error) {
-    console.error('Erreur :', error);
+  } catch (error: any) {
+    console.error('Erreur de l\'agent :', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
-  }
+              }
