@@ -6,6 +6,7 @@ import {
   getAgentById,
   buildAgentSystemPrompt,
 } from "@/lib/agents";
+
 import {
   PLANS,
   RATE_PER_MINUTE,
@@ -319,85 +320,116 @@ N'invente aucune donnée et suggère à l'utilisateur de compléter sa fiche ent
       : "");
 
   // =====================================================
-  // CRÉATION DE LA MISSION
+  // CRÉATION DE MISSION — QUOTA ATOMIQUE
   // =====================================================
 
-  const { data: mission, error: mErr } = await sb
-    .from("doss_missions")
-    .insert({
-      user_id: u.user.id,
-      message,
-      primary_agent: route.primaryAgent,
-      supporting_agents: route.supportingAgents,
-      confidence: route.confidence,
-      status: "pending",
-      company_id: company?.id ?? null,
-    })
-    .select("id")
-    .single();
+  const { data: reservation, error: reservationError } =
+    await sb.rpc("doss_create_mission_with_quota", {
+      p_message: message,
+      p_primary_agent: route.primaryAgent,
+      p_supporting_agents: route.supportingAgents,
+      p_confidence: route.confidence,
+      p_company_id: company?.id ?? null,
+    });
 
-  if (mErr || !mission) {
+  if (reservationError) {
     console.error(
-      "Erreur création mission :",
-      mErr?.message
+      "Erreur réservation mission :",
+      reservationError.message
     );
 
     return NextResponse.json(
       {
         error:
-          "Enregistrement impossible de la mission.",
+          "Impossible de réserver votre mission. Réessayez plus tard.",
+      },
+      { status: 503 }
+    );
+  }
+
+  const result = reservation as {
+    ok?: boolean;
+    code?: string;
+    mission_id?: string;
+    used?: number;
+    limit?: number;
+    plan?: string;
+  } | null;
+
+  if (!result?.ok) {
+    switch (result?.code) {
+      case "quota":
+        return NextResponse.json(
+          {
+            error: `Quota atteint : ${result.used}/${result.limit} missions réservées ou terminées ce mois-ci.`,
+            code: "quota",
+          },
+          { status: 429 }
+        );
+
+      case "rate":
+        return NextResponse.json(
+          {
+            error:
+              "Trop de requêtes : attendez une minute avant de relancer une mission.",
+            code: "rate",
+          },
+          { status: 429 }
+        );
+
+      case "company_forbidden":
+        return NextResponse.json(
+          {
+            error:
+              "Entreprise introuvable ou accès non autorisé.",
+          },
+          { status: 403 }
+        );
+
+      case "profile_missing":
+      case "invalid_plan":
+        return NextResponse.json(
+          {
+            error:
+              "Profil ou abonnement invalide. Contactez le support.",
+          },
+          { status: 403 }
+        );
+
+      case "invalid_message":
+      case "invalid_input":
+        return NextResponse.json(
+          { error: "Les données de la mission sont invalides." },
+          { status: 400 }
+        );
+
+      default:
+        return NextResponse.json(
+          {
+            error:
+              "La réservation de la mission a été refusée.",
+          },
+          { status: 500 }
+        );
+    }
+  }
+
+  if (!result.mission_id) {
+    console.error(
+      "Réservation sans identifiant de mission."
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "La mission a été réservée, mais son identifiant est manquant. Contactez le support.",
       },
       { status: 500 }
     );
   }
 
-  const enc = new TextEncoder();
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (o: object) =>
-        controller.enqueue(
-          enc.encode(JSON.stringify(o) + "\n")
-        );
-
-      send({
-        type: "route",
-        route,
-      });
-
-      let answer = "";
-      let provider: string | null = null;
-      let failure = "";
-
-      try {
-        for await (const c of streamLLM(
-          system,
-          message
-        )) {
-          provider = c.provider;
-          answer += c.text;
-
-          send({
-            type: "delta",
-            text: c.text,
-          });
-        }
-      } catch (e) {
-        failure =
-          e instanceof Error
-            ? e.message
-            : "Erreur inconnue";
-      }
-
-      const status = failure
-        ? "error"
-        : "done";
-
-      const { error: updateError } = await sb
-        .from("doss_missions")
-        .update({ status })
-        .eq("id", mission.id)
-        .eq("user_id", u.user.id);
+  const mission = { id: result.mission_id };
+      
 
       if (updateError) {
         console.error(
