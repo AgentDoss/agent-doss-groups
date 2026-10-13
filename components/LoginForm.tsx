@@ -146,7 +146,7 @@ export default function LoginForm() {
                 minLength={6}
                 autoComplete={mode === "in" ? "current-password" : "new-password"}
                 value={password}
-                onChange={(e) => setEmail ? setPassword(e.target.value) : null} // Conserve votre logique
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-sm"
               />
@@ -175,4 +175,4 @@ export default function LoginForm() {
       </div>
     </div>
   );
-}
+      }
