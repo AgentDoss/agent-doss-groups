@@ -158,12 +158,12 @@ const a = getAgentById(id);
 return a ? [a.name] : [];
 });
 
-const system =
-buildAgentSystemPrompt(primary) +
-context +
-(supporting.length
-? "\nAgents en renfort à recommander : ${supporting.join(", ")}."
-: "");
+const systemPrompt =
+  buildAgentSystemPrompt(primary) +
+  context +
+  (supporting.length
+    ? `\nAgents en renfort à recommander : ${supporting.join(", ")}.`
+    : "");
 
 // CRÉATION DE MISSION — QUOTA ATOMIQUE
 
