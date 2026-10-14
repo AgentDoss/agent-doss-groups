@@ -300,9 +300,9 @@ enc.encode(JSON.stringify(o) + "\n")
 
   try {
     for await (const c of streamLLM(
-      system,
-      message
-    )) {
+  systemPrompt,
+  message
+)) {
       provider = c.provider;
       answer += c.text;
 
