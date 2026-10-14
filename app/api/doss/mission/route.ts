@@ -713,4 +713,56 @@ Avant de terminer ta réponse :
               role: "user",
               content: message,
             },
+            {
+              mission_id: mission.id,
+              user_id: u.user.id,
+              agent_id: route.primaryAgent,
+              role: "agent",
+              content: answer || failure,
+            },
+          ]);
+
+        if (messagesError) {
+          console.error(
+            "Erreur sauvegarde messages :",
+            messagesError.message
+          );
+        }
+      } catch (e) {
+        console.error(
+          "Erreur sauvegarde messages :",
+          e
+        );
+      }
+
+      // ENVOI DE LA RÉPONSE COMPLÈTE
+
+      if (!failure && answer.trim()) {
+        send({
+          type: "delta",
+          text: answer,
+        });
+      }
+
+      send({
+        type: "done",
+        status: failure ? "error" : status,
+        provider,
+        missionId: mission.id,
+        error: failure || undefined,
+      });
+
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type":
+        "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-store, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
+      }
  
