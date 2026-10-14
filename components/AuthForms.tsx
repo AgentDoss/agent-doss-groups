@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
-import Logo from "@/components/Logo";
-import MagicBackground from "@/components/MagicBackground";
+import AuthShell, { Brand, Ic, ICONS } from "@/components/AuthShell";
 
 export function ForgotForm() {
   const [email, setEmail] = useState("");
@@ -27,21 +26,20 @@ export function ForgotForm() {
   }
 
   return (
-    <main className="loginWrap">
-      <MagicBackground />
-      <form className="card loginCard" onSubmit={submit}>
-        <Logo size={56} />
-        <h1>Mot de passe oublié</h1>
-        <p className="muted">Entrez votre e-mail : nous vous envoyons un lien pour choisir un nouveau mot de passe.</p>
-        <label>E-mail
-          <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+    <AuthShell>
+      <form className="v7Card" onSubmit={submit}>
+        <Brand title={<>Mot de passe <em>oublié</em></>} sub="Entrez votre e-mail : nous vous envoyons un lien pour choisir un nouveau mot de passe." />
+        <label className="v7Field">E-mail
+          <span className="v7Input"><Ic d={ICONS.mail} />
+            <input type="email" required autoComplete="email" placeholder="nom@domaine.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </span>
         </label>
-        <button className="primaryButton" disabled={busy} type="submit">{busy ? "Envoi…" : "Envoyer le lien"}</button>
-        {error && <p role="alert" className="err">{error}</p>}
-        {info && <p className="ok">{info}</p>}
-        <a className="linkBtn" href="/login">← Retour à la connexion</a>
+        <button className="v7Btn" disabled={busy} type="submit">{busy ? "Envoi…" : "Envoyer le lien"}</button>
+        {error && <p role="alert" className="v7Msg err">{error}</p>}
+        {info && <p className="v7Msg ok">{info}</p>}
+        <p className="v7Foot"><a className="v7Link gold" href="/login">← Retour à la connexion</a></p>
       </form>
-    </main>
+    </AuthShell>
   );
 }
 
@@ -81,28 +79,30 @@ export function ResetForm() {
   }
 
   return (
-    <main className="loginWrap">
-      <MagicBackground />
-      <form className="card loginCard" onSubmit={submit}>
-        <Logo size={56} />
-        <h1>Nouveau mot de passe</h1>
+    <AuthShell>
+      <form className="v7Card" onSubmit={submit}>
+        <Brand title={<>Nouveau mot de <em>passe</em></>} />
         {!ready ? (
-          <p className="muted">Vérification du lien… Si rien ne se passe, ouvrez le lien reçu par e-mail ou refaites une demande.</p>
+          <p className="v7Sub">Vérification du lien… Si rien ne se passe, ouvrez le lien reçu par e-mail ou refaites une demande.</p>
         ) : (
           <>
-            <label>Nouveau mot de passe
-              <input type="password" required minLength={6} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+            <label className="v7Field">Nouveau mot de passe
+              <span className="v7Input"><Ic d={ICONS.lock} />
+                <input type="password" required minLength={6} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+              </span>
             </label>
-            <label>Confirmer
-              <input type="password" required minLength={6} autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+            <label className="v7Field">Confirmer
+              <span className="v7Input"><Ic d={ICONS.lock} />
+                <input type="password" required minLength={6} autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+              </span>
             </label>
-            <button className="primaryButton" disabled={busy} type="submit">{busy ? "Patientez…" : "Enregistrer"}</button>
+            <button className="v7Btn" disabled={busy} type="submit">{busy ? "Patientez…" : "Enregistrer"}</button>
           </>
         )}
-        {error && <p role="alert" className="err">{error}</p>}
-        {info && <p className="ok">{info}</p>}
-        <a className="linkBtn" href="/mot-de-passe-oublie">Demander un nouveau lien</a>
+        {error && <p role="alert" className="v7Msg err">{error}</p>}
+        {info && <p className="v7Msg ok">{info}</p>}
+        <p className="v7Foot"><a className="v7Link gold" href="/mot-de-passe-oublie">Demander un nouveau lien</a></p>
       </form>
-    </main>
+    </AuthShell>
   );
 }
