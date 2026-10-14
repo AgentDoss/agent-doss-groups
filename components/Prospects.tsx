@@ -451,18 +451,89 @@ export default function Prospects() {
 
     if (isToday) {
       message =
+const openWhatsApp = (prospect: Prospect) => {
+    if (
+      prospect.user_id !== userId ||
+      prospect.company_id !== companyId
+    ) {
+      setError("Tu ne peux pas contacter ce prospect.");
+      return;
+    }
+
+    const number = getWhatsAppNumber(prospect.phone);
+
+    if (!number) {
+      setError(
+        "Ce prospect n’a pas de numéro de téléphone. Ajoute son numéro avant d’utiliser WhatsApp."
+      );
+      return;
+    }
+
+    setError("");
+    setNotice("");
+
+    const today = getLocalDate();
+    const followUp = prospect.next_follow_up;
+
+    const isOverdue = Boolean(
+      followUp && followUp < today
+    );
+
+    const isToday = followUp === today;
+
+    const isFuture = Boolean(
+      followUp && followUp > today
+    );
+
+    // Empêcher une relance avant la date prévue.
+    if (isFuture) {
+      setNotice(
+        "Relance prévue le " +
+          formatDate(followUp!) +
+          ". WhatsApp ne sera pas ouvert avant cette date."
+      );
+      return;
+    }
+
+    let message = "";
+
+    // 1. Relance en retard.
+    if (isOverdue) {
+      message =
+        `Bonjour ${prospect.name},\n\n` +
+        "Je me permets de revenir vers vous à la suite de notre précédent échange ou de notre prise de contact.\n\n" +
+        "Chez AGENT DOSS GROUPS, nous aidons les entreprises à développer leur prospection commerciale, leur marketing et leur gestion client grâce à l’intelligence artificielle.\n\n" +
+        "Seriez-vous disponible pour échanger sur vos besoins ?\n\n" +
+        "Bien cordialement,\nAGENT DOSS GROUPS";
+    }
+
+    // 2. Relance prévue aujourd’hui.
+    else if (isToday) {
+      message =
         `Bonjour ${prospect.name},\n\n` +
         "Comme convenu, je reviens vers vous aujourd’hui au sujet de nos solutions d’intelligence artificielle pour les entreprises.\n\n" +
         "Seriez-vous disponible pour échanger quelques minutes sur vos besoins ?\n\n" +
         "Bien cordialement,\nAGENT DOSS GROUPS";
     }
 
-    if (isFuture) {
-      setNotice(
-        "La relance est prévue pour le " +
-          formatDate(followUp!) +
-          ". Vérifie la date avant de contacter ce prospect."
-      );
+    // 3. Prospect déjà contacté, sans relance future.
+    else if (prospect.status === "Contacté") {
+      message =
+        `Bonjour ${prospect.name},\n\n` +
+        "Je reviens vers vous concernant notre prise de contact avec AGENT DOSS GROUPS.\n\n" +
+        "Nous accompagnons les entreprises dans la prospection commerciale, le marketing digital et l’automatisation grâce à l’intelligence artificielle.\n\n" +
+        "Avez-vous eu l’occasion de réfléchir à vos besoins ? Je serais ravi d’en discuter avec vous.\n\n" +
+        "Bien cordialement,\nAGENT DOSS GROUPS";
+    }
+
+    // 4. Nouveau prospect ou autre statut.
+    else {
+      message =
+        `Bonjour ${prospect.name},\n\n` +
+        "Je vous contacte au nom d’AGENT DOSS GROUPS.\n\n" +
+        "Nous aidons les entreprises à gagner du temps et à développer leurs ventes grâce à des agents d’intelligence artificielle spécialisés dans la prospection, le marketing et la relation client.\n\n" +
+        "Seriez-vous disponible pour un court échange afin de découvrir vos besoins ?\n\n" +
+        "Bien cordialement,\nAGENT DOSS GROUPS";
     }
 
     const url =
