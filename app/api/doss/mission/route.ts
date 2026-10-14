@@ -76,12 +76,29 @@ function validateGeneratedAnswer(
   const warnings = new Set<string>();
   const text = normalizeText(answer);
 
-  const checks: Array<{ pattern: RegExp; warning: string }> = [
+  // Réduit certains faux avertissements lorsque la phrase
+  // indique clairement une absence ou une interdiction.
+  const sentences = text
+    .split(/[.!?\n]+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  const isNegated = (sentence: string): boolean =>
+    /\b(ne|n'est pas|n'a pas|n'ont pas|pas encore|aucun|aucune|sans|ne sera pas|ne sont pas|ne garantit pas|ne promet pas)\b/i.test(
+      sentence
+    );
+
+  const checks: Array<{
+    pattern: RegExp;
+    warning: string;
+    ignoreNegated?: boolean;
+  }> = [
     {
       pattern:
         /\b(resultats? garantis?|garantit une augmentation|garantit des ventes|sans aucun risque)\b/i,
       warning:
         "Promesse de résultat ou garantie détectée : confirme qu'elle est justifiée avant publication.",
+      ignoreNegated: true,
     },
     {
       pattern:
@@ -94,6 +111,7 @@ function validateGeneratedAnswer(
         /\b(campagne lancee|campagne est lancee|email envoye|emails envoyes|prospect contacte|prospects contactes|publication effectuee)\b/i,
       warning:
         "Une action semble présentée comme déjà réalisée : confirme son exécution technique.",
+      ignoreNegated: true,
     },
     {
       pattern:
@@ -112,6 +130,7 @@ function validateGeneratedAnswer(
         /\b(augmente|augmenter|augmentation|double|tripler|multiplie|multiplier)\b.{0,80}\b(ventes|chiffre d'affaires|revenus|clients|prospects|conversion|croissance)\b/i,
       warning:
         "Une amélioration commerciale est annoncée : présente-la comme un objectif, sauf si des preuves fiables la confirment.",
+      ignoreNegated: true,
     },
     {
       pattern:
@@ -122,8 +141,31 @@ function validateGeneratedAnswer(
   ];
 
   for (const check of checks) {
-    if (check.pattern.test(text)) warnings.add(check.warning);
+    const matchedSentences = sentences.filter((sentence) =>
+      check.pattern.test(sentence)
+    );
+
+    const hasRelevantMatch = matchedSentences.some(
+      (sentence) => !check.ignoreNegated || !isNegated(sentence)
+    );
+
+    if (hasRelevantMatch) {
+      warnings.add(check.warning);
+    }
   }
+
+  if (warnings.size === 0) {
+    return answer;
+  }
+
+  return (
+    answer.trim() +
+    "\n\n### Vérifications conseillées\n" +
+    Array.from(warnings)
+      .map((warning) => `- ${warning}`)
+      .join("\n")
+  );
+}
 
   const geographicPairs = [
     ["abidjan", "senegal", "Vérifie l'association entre Abidjan et le Sénégal."],
