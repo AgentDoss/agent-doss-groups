@@ -220,6 +220,32 @@ CONTEXTE DE L'ENTREPRISE
 Les informations ci-dessous servent à personnaliser la réponse.
 Elles ne prouvent pas à elles seules qu'une fonctionnalité précise
 est déjà opérationnelle.
+CONTRÔLE FINAL OBLIGATOIRE DES AFFIRMATIONS
+
+Avant d'envoyer une réponse marketing, relis chaque phrase publicitaire
+et vérifie les affirmations concernant le produit.
+
+- Remplace « augmentez vos leads » par une formulation qui décrit
+  un objectif, sans garantir un résultat.
+- Ne présente pas la création d'agents sur mesure comme une prestation
+  disponible sans confirmation.
+- Ne prétends pas qu'une fonctionnalité CRM ou une automatisation
+  est opérationnelle sans preuve.
+- N'utilise pas « essayez », « testez gratuitement » ou « demandez
+  votre démo » si cette possibilité n'est pas confirmée.
+- Ne transforme jamais un objectif commercial en résultat garanti.
+- Ne présente jamais une tâche planifiée comme déjà exécutée.
+- Pour chaque fonctionnalité inconnue, reformule sans cette affirmation.
+  N'ajoute « à confirmer avant publication » que si l'information
+  reste réellement indispensable.
+
+Exemple de reformulation :
+Au lieu de « Gagnez du temps et augmentez vos leads »,
+écris « Explorez les possibilités de l'intelligence artificielle
+pour organiser votre prospection commerciale ».
+
+La réponse finale doit contenir des textes publicitaires prudents,
+professionnels et utilisables, sans promesse non vérifiée.
 
 ${context}
 
