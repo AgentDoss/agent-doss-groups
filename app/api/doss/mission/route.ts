@@ -135,19 +135,85 @@ function validateGeneratedAnswer(
     {
       pattern:
         /\b\d{1,3}\s?%\b.{0,70}\b(augmentation|hausse|croissance|ventes|revenus|conversion|resultats garantis?)\b/i,
+function validateGeneratedAnswer(
+  answer: string,
+  _company: CompanyData | null
+): string {
+  const warnings = new Set<string>();
+  const text = normalizeText(answer);
+
+  const checks: Array<{
+    pattern: RegExp;
+    warning: string;
+    ignoreNegated?: boolean;
+  }> = [
+    {
+      pattern:
+        /\b(resultats? garantis?|garantit une augmentation|garantit des ventes|sans aucun risque)\b/i,
+      warning:
+        "Promesse de résultat ou garantie détectée : confirme qu'elle est justifiée avant publication.",
+      ignoreNegated: true,
+    },
+    {
+      pattern:
+        /\b(essai gratuit|demo gratuite|demonstration gratuite|remboursement garanti|reduction exclusive|offre limitee|promotion exclusive)\b/i,
+      warning:
+        "Offre commerciale détectée : vérifie qu'elle existe réellement et que ses conditions sont exactes.",
+    },
+    {
+      pattern:
+        /\b(campagne lancee|campagne est lancee|email envoye|emails envoyes|prospect contacte|prospects contactes|publication effectuee)\b/i,
+      warning:
+        "Une action semble présentée comme déjà réalisée : confirme son exécution technique.",
+      ignoreNegated: true,
+    },
+    {
+      pattern:
+        /\b(integration native|integre automatiquement|connecte automatiquement|connexion automatique)\b/i,
+      warning:
+        "Une intégration ou automatisation est mentionnée : confirme que cette fonctionnalité existe.",
+    },
+    {
+      pattern:
+        /\b(temoignage client|certifie par|certification obtenue|nos clients ont obtenu|etude de cas client)\b/i,
+      warning:
+        "Une preuve sociale ou une certification est évoquée : vérifie qu'elle est documentée.",
+    },
+    {
+      pattern:
+        /\b(augmente|augmenter|augmentation|double|tripler|multiplie|multiplier)\b.{0,80}\b(ventes|chiffre d'affaires|revenus|clients|prospects|conversion|croissance)\b/i,
+      warning:
+        "Une amélioration commerciale est annoncée : présente-la comme un objectif, sauf si des preuves fiables la confirment.",
+      ignoreNegated: true,
+    },
+    {
+      pattern:
+        /\b\d{1,3}\s?%\b.{0,70}\b(augmentation|hausse|croissance|ventes|revenus|conversion|resultats garantis?)\b/i,
       warning:
         "Un pourcentage associé à une performance commerciale est détecté : vérifie sa source et son contexte.",
     },
   ];
 
-  for (const check of checks) {
-    const matchedSentences = sentences.filter((sentence) =>
-      check.pattern.test(sentence)
+  const sentences = text
+    .split(/[.!?\n]+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  const isNegated = (sentence: string): boolean =>
+    /\b(ne|n'est pas|n'a pas|n'ont pas|pas encore|aucun|aucune|sans|ne sera pas|ne sont pas|ne garantit pas|ne promet pas)\b/i.test(
+      sentence
     );
 
-    const hasRelevantMatch = matchedSentences.some(
-      (sentence) => !check.ignoreNegated || !isNegated(sentence)
-    );
+  for (const check of checks) {
+    const hasRelevantMatch = sentences.some((sentence) => {
+      if (!check.pattern.test(sentence)) return false;
+
+      if (check.ignoreNegated && isNegated(sentence)) {
+        return false;
+      }
+
+      return true;
+    });
 
     if (hasRelevantMatch) {
       warnings.add(check.warning);
@@ -159,8 +225,10 @@ function validateGeneratedAnswer(
   }
 
   return (
-    answer.trim() +
-    "\n\n### Vérifications conseillées\n" +
+    answer.trimEnd() +
+    "\n\n## Vérifications conseillées avant utilisation\n\n" +
+    "Un contrôle automatique a détecté les points suivants. " +
+    "Il ne s'agit pas d'une vérification externe des faits :\n\n" +
     Array.from(warnings)
       .map((warning) => `- ${warning}`)
       .join("\n")
