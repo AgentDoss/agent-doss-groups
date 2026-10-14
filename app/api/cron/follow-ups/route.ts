@@ -15,9 +15,10 @@ export async function GET(request: Request) {
     );
   }
 
-  const authorization = request.headers.get("authorization");
-
-  if (authorization !== `Bearer ${cronSecret}`) {
+  if (
+    request.headers.get("authorization") !==
+    `Bearer ${cronSecret}`
+  ) {
     return NextResponse.json(
       { error: "Accès non autorisé." },
       { status: 401 }
@@ -50,7 +51,9 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabase
       .from("doss_prospects")
-      .select("id, user_id, company_id, next_follow_up")
+      .select(
+        "id, user_id, company_id, status, next_follow_up, phone, email"
+      )
       .lte("next_follow_up", today)
       .not("next_follow_up", "is", null)
       .limit(500);
@@ -69,30 +72,40 @@ export async function GET(request: Request) {
 
     const prospects = data ?? [];
 
-    const valid = prospects.filter(
-      (p) => p.user_id && p.company_id
+    const statutValide = (status: string | null) =>
+      status === "Nouveau" || status === "Contacté";
+
+    const avecIdentifiants = prospects.filter(
+      (p) => p.user_id && p.company_id && statutValide(p.status)
     );
 
-    const ignored = prospects.length - valid.length;
+    const pretsWhatsApp = avecIdentifiants.filter(
+      (p) => Boolean(p.phone?.trim())
+    );
+
+    const sansTelephone = avecIdentifiants.filter(
+      (p) => !p.phone?.trim()
+    );
 
     return NextResponse.json({
       success: true,
       date: today,
-      relancesEchues: valid.length,
-      lignesIgnorees: ignored,
+      relancesEchues: prospects.length,
+      prospectsEligibles: avecIdentifiants.length,
+      pretsWhatsApp: pretsWhatsApp.length,
+      sansTelephone: sansTelephone.length,
+      lignesIgnorees:
+        prospects.length - avecIdentifiants.length,
       envoiWhatsApp: false,
-      message: "Vérification terminée. Aucun message envoyé.",
+      messagesEnvoyes: 0,
+      message:
+        "Vérification terminée. Aucun message envoyé.",
     });
   } catch (error) {
-    console.error(
-      "Erreur automatisation CRM :",
-      error
-    );
+    console.error("Erreur automatisation CRM :", error);
 
     return NextResponse.json(
-      {
-        error: "Erreur interne pendant la vérification.",
-      },
+      { error: "Erreur interne pendant la vérification." },
       { status: 500 }
     );
   }
