@@ -560,144 +560,121 @@ DERNIÈRE VÉRIFICATION AVANT LIVRAISON
       "X-Accel-Buffering": "no",
     },
   });
-    }
+  }
 // =====================================================
-  // STREAMING DE LA RÉPONSE IA
+  // FIN DU STREAMING DE LA MISSION
   // =====================================================
 
   const enc = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      let answer = "";
-      let streamError: string | null = null;
-
       const send = (data: Record<string, unknown>) => {
         controller.enqueue(
           enc.encode(JSON.stringify(data) + "\n")
         );
       };
 
+      let answer = "";
+      let failure = "";
+      let provider: string | null = null;
+
       try {
-        send({
-          type: "route",
-          primaryAgent: primaryAgent.id,
-          supportingAgents: supportingAgents.map((agent) => agent.id),
-          confidence,
-        });
+        const reviewPrompt =
+          systemPrompt +
+          `
 
-        for await (const chunk of streamLLM({
-          system: systemPrompt,
-          messages: [{ role: "user", content: message }],
-          maxTokens: 2000,
-        })) {
-          answer += chunk;
-          send({ type: "delta", content: chunk });
+VÉRIFICATION FINALE
+- Ne fabrique aucun chiffre ni résultat.
+- Respecte le nombre d'éléments demandé.
+- Ne confonds pas prospects et clients.
+- Ne prétends pas avoir exécuté une action sans confirmation.
+- Privilégie les solutions gratuites lorsque cela convient.
+`;
+
+        for await (const chunk of streamLLM(reviewPrompt, message)) {
+          provider = chunk.provider;
+          answer += chunk.text;
         }
-
-        answer = validateGeneratedAnswer(answer, company);
 
         if (!answer.trim()) {
-          throw new Error("Le modèle IA n'a généré aucune réponse.");
+          failure = "Le modèle IA n'a retourné aucune réponse.";
+        } else {
+          answer = validateGeneratedAnswer(answer, company);
         }
-
-        const { error: updateError } = await sb
-          .from("doss_missions")
-          .update({
-            status: "done",
-            result: answer,
-            primary_agent: primaryAgent.id,
-            supporting_agents: supportingAgents.map(
-              (agent) => agent.id
-            ),
-            confidence,
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", mission.id)
-          .eq("user_id", user.id);
-
-        if (updateError) {
-          console.error(
-            "Erreur mise à jour mission :",
-            updateError.message
-          );
-        }
-
-        const { error: userMessageError } = await sb
-          .from("doss_messages")
-          .insert({
-            mission_id: mission.id,
-            user_id: user.id,
-            role: "user",
-            content: message,
-          });
-
-        if (userMessageError) {
-          console.error(
-            "Erreur sauvegarde message utilisateur :",
-            userMessageError.message
-          );
-        }
-
-        const { error: assistantMessageError } = await sb
-          .from("doss_messages")
-          .insert({
-            mission_id: mission.id,
-            user_id: user.id,
-            role: "assistant",
-            content: answer,
-            agent_id: primaryAgent.id,
-          });
-
-        if (assistantMessageError) {
-          console.error(
-            "Erreur sauvegarde réponse IA :",
-            assistantMessageError.message
-          );
-        }
-
-        send({
-          type: "done",
-          missionId: mission.id,
-          answer,
-          primaryAgent: primaryAgent.id,
-          supportingAgents: supportingAgents.map(
-            (agent) => agent.id
-          ),
-          confidence,
-        });
       } catch (error) {
-        streamError =
+        failure =
           error instanceof Error
             ? error.message
-            : "Une erreur est survenue pendant la mission.";
-
-        console.error("Erreur streaming mission :", error);
-
-        await sb
-          .from("doss_missions")
-          .update({
-            status: "error",
-            error_message: streamError,
-          })
-          .eq("id", mission.id)
-          .eq("user_id", user.id);
-
-        send({
-          type: "error",
-          error: streamError,
-        });
-      } finally {
-        controller.close();
+            : "Une erreur est survenue pendant la génération.";
+        console.error("Erreur génération IA :", failure);
       }
+
+      const status = failure ? "error" : "done";
+
+      const { error: updateError } = await sb
+        .from("doss_missions")
+        .update({ status })
+        .eq("id", mission.id)
+        .eq("user_id", u.user.id);
+
+      if (updateError) {
+        console.error(
+          "Erreur mise à jour mission :",
+          updateError.message
+        );
+      }
+
+      const { error: messagesError } = await sb
+        .from("doss_messages")
+        .insert([
+          {
+            mission_id: mission.id,
+            user_id: u.user.id,
+            agent_id: "user",
+            role: "user",
+            content: message,
+          },
+          {
+            mission_id: mission.id,
+            user_id: u.user.id,
+            agent_id: route.primaryAgent,
+            role: "agent",
+            content: answer || failure,
+          },
+        ]);
+
+      if (messagesError) {
+        console.error(
+          "Erreur sauvegarde messages :",
+          messagesError.message
+        );
+      }
+
+      if (!failure && answer.trim()) {
+        send({
+          type: "delta",
+          text: answer,
+        });
+      }
+
+      send({
+        type: "done",
+        status: failure ? "error" : status,
+        provider,
+        missionId: mission.id,
+        error: failure || undefined,
+      });
+
+      controller.close();
     },
   });
 
   return new Response(stream, {
     headers: {
       "Content-Type": "application/x-ndjson; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
+      "Cache-Control": "no-store, no-transform",
+      "X-Accel-Buffering": "no",
     },
   });
 }
