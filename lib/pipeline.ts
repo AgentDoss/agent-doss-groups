@@ -1,0 +1,329 @@
+// Pipeline de mission en plusieurs étapes.
+//
+//  quick    : 1 appel          → réponse courte, diffusée en direct
+//  standard : 2 appels         → brouillon expert + relecture qualité (diffusée en direct)
+//  expert   : 3 à 5 appels     → plan du Directeur → experts en parallèle → synthèse (diffusée en direct)
+//
+// Chaque étape respecte un budget de temps (deadlineAt) et dégrade proprement :
+// on livre toujours la meilleure version disponible plutôt qu'une erreur.
+
+import { completeLLM, streamLLM, LLMError, type LLMOptions } from "./llm";
+import {
+  DOSS_AGENTS,
+  getAgentById,
+  buildAgentSystemPrompt,
+  type AgentId,
+  type Depth,
+  type DirectorRoute,
+  type DossAgent,
+  type PromptMode,
+} from "./agents";
+
+export type PipelineEvent =
+  | { type: "status"; stage: string; label: string }
+  | { type: "delta"; text: string };
+
+export interface PipelineInput {
+  message: string;
+  route: DirectorRoute;
+  primary: DossAgent;
+  depth: Depth;
+  rules: string;    // règles de fiabilité + règle de nombre
+  context: string;  // fiche entreprise
+  history: string;  // historique récent (peut être vide)
+  deadlineAt: number; // epoch ms : au-delà, on dégrade
+  emit: (e: PipelineEvent) => void;
+}
+
+export interface PipelineResult {
+  answer: string;
+  provider: string | null;
+  depth: Depth;
+  interrupted: boolean;
+}
+
+const FIRST_TOKEN_MS = 12_000;
+
+/* ---------- Utilitaires ---------- */
+
+function grounding(i: PipelineInput): string {
+  return [i.rules, i.context, i.history].filter(Boolean).join("\n\n");
+}
+
+function sys(i: PipelineInput, agent: DossAgent, mode: PromptMode, extra = ""): string {
+  return `${buildAgentSystemPrompt(agent, mode)}\n${extra}\n${grounding(i)}`;
+}
+
+const remaining = (i: PipelineInput) => i.deadlineAt - Date.now();
+const within = (ms: number) => AbortSignal.timeout(Math.max(3_000, ms));
+
+function opts(maxTokens: number, signal: AbortSignal, temperature?: number): LLMOptions {
+  return { maxTokens, signal, temperature, firstTokenTimeoutMs: FIRST_TOKEN_MS };
+}
+
+// Diffuse l'étape finale vers le client. Si elle échoue avant tout texte : l'erreur remonte.
+// Si elle échoue en cours de route : on garde ce qui a été reçu.
+async function streamFinal(
+  system: string,
+  user: string,
+  o: LLMOptions,
+  emit: PipelineInput["emit"]
+): Promise<{ text: string; provider: string | null; interrupted: boolean }> {
+  let text = "";
+  let provider: string | null = null;
+  let interrupted = false;
+  try {
+    for await (const c of streamLLM(system, user, o)) {
+      provider = c.provider;
+      text += c.text;
+      emit({ type: "delta", text: c.text });
+    }
+  } catch (e) {
+    if (!text) throw e;
+    interrupted = true;
+  }
+  if (!text.trim()) throw new LLMError("Réponse vide");
+  return { text, provider, interrupted };
+}
+
+/* ---------- Étape de relecture qualité ---------- */
+
+const REVIEW_INSTRUCTIONS = `MODE RELECTURE QUALITÉ
+Tu reçois un BROUILLON de ta propre réponse. Améliore-le, puis livre la version finale. Ne commente pas la relecture.
+Grille :
+1. Spécificité : chaque recommandation est-elle reliée à CETTE entreprise ? Sinon, concrétise-la ou supprime-la.
+2. Profondeur : raisonnement (pourquoi), alternatives, étapes concrètes, exemples ou modèles utilisables, indicateur de réussite.
+3. Fiabilité : tout chiffre, promesse, offre, fonctionnalité ou action non confirmés devient une hypothèse ou un objectif ; la RÈGLE DE NOMBRE est respectée ; les étiquettes [Fiche] / [Hypothèse] / [Repère général] sont justes.
+4. Complétude : ajoute ce qu'un expert senior ajouterait (risques, ordre d'exécution, cas limites).
+5. Clarté : titres nets, phrases directes, aucune répétition.
+Réécris les parties faibles ; n'allonge pas sans valeur ajoutée. Réponds uniquement avec la version finale complète, dans la même structure.`;
+
+async function reviewAndStream(
+  i: PipelineInput,
+  agent: DossAgent,
+  draft: string,
+  provider: string | null
+): Promise<PipelineResult> {
+  // Plus assez de temps : on livre le brouillon tel quel.
+  if (remaining(i) < 12_000) {
+    i.emit({ type: "delta", text: draft });
+    return { answer: draft, provider, depth: i.depth, interrupted: false };
+  }
+
+  i.emit({ type: "status", stage: "review", label: "Contrôle qualité et approfondissement…" });
+  try {
+    const r = await streamFinal(
+      sys(i, agent, "deep", REVIEW_INSTRUCTIONS),
+      `DEMANDE DE L'UTILISATEUR :\n${i.message}\n\nBROUILLON À AMÉLIORER :\n${draft}`,
+      opts(3500, within(remaining(i))),
+      i.emit
+    );
+    return { answer: r.text, provider: r.provider ?? provider, depth: i.depth, interrupted: r.interrupted };
+  } catch {
+    // La relecture a échoué avant d'écrire quoi que ce soit : le brouillon reste une bonne réponse.
+    i.emit({ type: "delta", text: draft });
+    return { answer: draft, provider, depth: i.depth, interrupted: false };
+  }
+}
+
+/* ---------- Mode expert : plan → experts → synthèse ---------- */
+
+interface Task { agent: DossAgent; question: string; mode: PromptMode }
+interface Plan { need: string; missing: string[]; tasks: Array<{ agent: AgentId; question: string }> }
+
+const PLANNABLE = new Set<AgentId>(
+  DOSS_AGENTS.filter((a) => a.status === "active" && a.id !== "director").map((a) => a.id)
+);
+
+function planSystem(i: PipelineInput): string {
+  const team = DOSS_AGENTS.filter((a) => PLANNABLE.has(a.id))
+    .map((a) => `- ${a.id} : ${a.role}`)
+    .join("\n");
+  return `Tu es DOSS Directeur. Prépare le travail de ton équipe pour la mission reçue.
+
+Agents disponibles :
+${team}
+
+Retourne UNIQUEMENT un objet JSON valide, sans texte autour ni balises :
+{"need":"reformulation du vrai besoin en 1 à 2 phrases","missing_info":["information manquante utile"],"tasks":[{"agent":"id_agent","question":"sous-question précise pour cet expert"}]}
+
+Règles :
+- 2 à 3 tâches, agents distincts, ids de la liste uniquement.
+- Les sous-questions sont complémentaires, sans chevauchement, et reliées à la situation de l'entreprise.
+- Agent principal pressenti : ${i.primary.id === "director" ? "à toi de choisir" : i.primary.id}.
+- missing_info : 0 à 3 éléments, seulement ce qui change vraiment l'analyse.
+
+${i.context}`;
+}
+
+function parsePlan(raw: string): Plan | null {
+  const s = raw.indexOf("{");
+  const e = raw.lastIndexOf("}");
+  if (s < 0 || e <= s) return null;
+  try {
+    const j = JSON.parse(raw.slice(s, e + 1)) as Record<string, unknown>;
+    const need = typeof j.need === "string" ? j.need.trim() : "";
+    const missing = Array.isArray(j.missing_info)
+      ? j.missing_info.filter((x): x is string => typeof x === "string" && !!x.trim()).slice(0, 3)
+      : [];
+    const seen = new Set<string>();
+    const tasks: Plan["tasks"] = [];
+    if (Array.isArray(j.tasks)) {
+      for (const t of j.tasks as Array<Record<string, unknown>>) {
+        const id = t?.agent as AgentId;
+        const q = typeof t?.question === "string" ? t.question.trim() : "";
+        if (PLANNABLE.has(id) && q && !seen.has(id)) {
+          seen.add(id);
+          tasks.push({ agent: id, question: q });
+        }
+      }
+    }
+    return tasks.length ? { need, missing, tasks: tasks.slice(0, 3) } : null;
+  } catch {
+    return null;
+  }
+}
+
+function fallbackPlan(i: PipelineInput): Plan {
+  const ids = [i.primary.id, ...i.route.supportingAgents].filter((id) => PLANNABLE.has(id));
+  return {
+    need: "",
+    missing: [],
+    tasks: [...new Set(ids)].slice(0, 3).map((agent) => ({ agent, question: i.message })),
+  };
+}
+
+function buildTeam(i: PipelineInput, plan: Plan): Task[] {
+  const team: Task[] = [];
+  if (i.primary.id !== "director") {
+    const own = plan.tasks.find((t) => t.agent === i.primary.id);
+    team.push({ agent: i.primary, question: own?.question ?? i.message, mode: "deep" });
+  }
+  for (const t of plan.tasks) {
+    if (team.length >= 3) break;
+    const agent = getAgentById(t.agent);
+    if (agent && !team.some((x) => x.agent.id === agent.id)) {
+      team.push({ agent, question: t.question, mode: "contribution" });
+    }
+  }
+  // Aucun spécialiste identifié : le Directeur traite lui-même en profondeur.
+  if (team.length === 0) team.push({ agent: i.primary, question: i.message, mode: "deep" });
+  return team;
+}
+
+const SYNTHESIS_INSTRUCTIONS = `MODE SYNTHÈSE DU DIRECTEUR
+Tu reçois les analyses de plusieurs experts de ton équipe. Produis la réponse finale UNIQUE destinée au chef d'entreprise, dans la structure du FORMAT ci-dessus.
+Méthode :
+1. Fusionne, ne juxtapose pas : supprime les répétitions, relie les analyses entre elles.
+2. Résous les contradictions : indique ce que tu retiens et pourquoi.
+3. Priorise (impact × effort) et ordonne dans le temps (cette semaine, 30 jours, 90 jours si pertinent).
+4. Garde ce qui est spécifique et concret (scripts, modèles, exemples) ; retire les généralités.
+5. Corrige toute affirmation non soutenue : chiffre, promesse, offre, fonctionnalité ou action présentée comme réalisée devient une hypothèse ou un objectif.
+6. Dans le plan d'action, indique l'agent DOSS responsable de chaque action.
+7. Intègre les informations manquantes signalées dans la section « Pour affiner ».
+Réponds uniquement avec la réponse finale complète.`;
+
+function fallbackAnswer(parts: Array<{ task: Task; text: string }>): string {
+  const deep = parts.find((p) => p.task.mode === "deep");
+  if (deep) return deep.text;
+  return parts.map((p) => `# ${p.task.agent.name}\n\n${p.text}`).join("\n\n");
+}
+
+async function runExpert(i: PipelineInput): Promise<PipelineResult> {
+  // 1. PLAN du Directeur (court, JSON). En cas d'échec : plan de secours issu du routage local.
+  let plan = fallbackPlan(i);
+  // L'appel de plan n'est utile que si le routage local n'a trouvé aucun spécialiste (économise 1 appel).
+  if (i.primary.id === "director" && remaining(i) > 35_000) {
+    i.emit({ type: "status", stage: "plan", label: "Le Directeur analyse la mission et la répartit…" });
+    try {
+      const r = await completeLLM(planSystem(i), `MISSION :\n${i.message}`, opts(700, within(9_000), 0.2));
+      plan = parsePlan(r.text) ?? plan;
+    } catch {
+      /* plan de secours conservé */
+    }
+  }
+
+  // 2. EXPERTS en parallèle : l'agent principal en profondeur, les autres en contribution ciblée.
+  const team = buildTeam(i, plan);
+  i.emit({
+    type: "status",
+    stage: "experts",
+    label: `Analyse en cours : ${team.map((t) => t.agent.name).join(", ")}…`,
+  });
+
+  const budget = Math.min(28_000, Math.max(10_000, remaining(i) - 22_000));
+  const settled = await Promise.allSettled(
+    team.map((t) =>
+      completeLLM(
+        sys(i, t.agent, t.mode),
+        `MISSION DE L'UTILISATEUR :\n${i.message}\n\n` +
+          (plan.need ? `BESOIN IDENTIFIÉ PAR LE DIRECTEUR :\n${plan.need}\n\n` : "") +
+          `TA SOUS-MISSION :\n${t.question}`,
+        opts(t.mode === "deep" ? 3000 : 1500, within(budget))
+      ).then((r) => ({ task: t, text: r.text.trim(), provider: r.provider }))
+    )
+  );
+  const parts = settled.flatMap((s) => (s.status === "fulfilled" && s.value.text ? [s.value] : []));
+  if (parts.length === 0) throw new LLMError("Aucun agent n'a pu produire d'analyse (délai ou fournisseurs indisponibles).", 503);
+
+  const lastProvider = parts[parts.length - 1].provider;
+
+  // Un seul expert disponible : relecture qualité classique.
+  if (parts.length === 1) return reviewAndStream(i, parts[0].task.agent, parts[0].text, lastProvider);
+
+  // Plus assez de temps pour la synthèse : on livre le meilleur contenu disponible.
+  if (remaining(i) < 14_000) {
+    const answer = fallbackAnswer(parts);
+    i.emit({ type: "delta", text: answer });
+    return { answer, provider: lastProvider, depth: i.depth, interrupted: false };
+  }
+
+  // 3. SYNTHÈSE du Directeur, diffusée en direct.
+  i.emit({ type: "status", stage: "synthesis", label: "Le Directeur fusionne les analyses…" });
+  const director = getAgentById("director")!;
+  const synthesisUser =
+    `DEMANDE DU CHEF D'ENTREPRISE :\n${i.message}\n\n` +
+    (plan.need ? `BESOIN IDENTIFIÉ : ${plan.need}\n\n` : "") +
+    (plan.missing.length ? `INFORMATIONS MANQUANTES SIGNALÉES :\n${plan.missing.map((m) => `- ${m}`).join("\n")}\n\n` : "") +
+    `ANALYSES DES EXPERTS :\n\n` +
+    parts
+      .map((p) => `### ${p.task.agent.name} (${p.task.mode === "deep" ? "analyse principale" : "contribution"})\n${p.text}`)
+      .join("\n\n");
+
+  try {
+    const r = await streamFinal(
+      sys(i, director, "deep", SYNTHESIS_INSTRUCTIONS),
+      synthesisUser,
+      opts(4000, within(remaining(i))),
+      i.emit
+    );
+    return { answer: r.text, provider: r.provider ?? lastProvider, depth: i.depth, interrupted: r.interrupted };
+  } catch {
+    const answer = fallbackAnswer(parts);
+    i.emit({ type: "delta", text: answer });
+    return { answer, provider: lastProvider, depth: i.depth, interrupted: false };
+  }
+}
+
+/* ---------- Point d'entrée ---------- */
+
+export async function runMissionPipeline(i: PipelineInput): Promise<PipelineResult> {
+  if (i.depth === "quick") {
+    i.emit({ type: "status", stage: "quick", label: `${i.primary.name} répond…` });
+    const r = await streamFinal(sys(i, i.primary, "quick"), i.message, opts(1500, within(remaining(i))), i.emit);
+    return { answer: r.text, provider: r.provider, depth: "quick", interrupted: r.interrupted };
+  }
+
+  if (i.depth === "standard") {
+    i.emit({ type: "status", stage: "draft", label: `${i.primary.name} prépare une analyse approfondie…` });
+    const draft = await completeLLM(
+      sys(i, i.primary, "deep"),
+      i.message,
+      opts(3000, within(remaining(i) - 15_000))
+    );
+    if (!draft.text.trim()) throw new LLMError("Le modèle IA n'a retourné aucune réponse.");
+    return reviewAndStream(i, i.primary, draft.text.trim(), draft.provider);
+  }
+
+  return runExpert(i);
+}
