@@ -1,9 +1,19 @@
 // Réponses en streaming + bascule automatique entre fournisseurs et clés.
 // La bascule n'a lieu qu'AVANT le premier mot reçu ; ensuite le flux est conservé tel quel.
+// v3 : options par appel (jetons, température, délai global) + completeLLM() pour les étapes internes.
+
+export interface LLMOptions {
+  maxTokens?: number;           // défaut 2000
+  temperature?: number;         // défaut 0.3
+  signal?: AbortSignal;         // délai global de l'étape (n'entraîne pas de mise en pause du fournisseur)
+  firstTokenTimeoutMs?: number; // défaut 8000
+}
+
+type CallParams = { maxTokens: number; temperature: number };
 
 interface Provider {
   id: string;
-  open: (system: string, user: string, signal: AbortSignal) => Promise<Response>;
+  open: (system: string, user: string, signal: AbortSignal, p: CallParams) => Promise<Response>;
   parse: (data: unknown) => string;
 }
 
@@ -16,18 +26,19 @@ export class LLMError extends Error {
 export interface LLMChunk { provider: string; text: string }
 
 const split = (v?: string) => (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-const MAX_TOKENS = 2000; // marge pour les modèles à réflexion (la réflexion consomme des jetons)
+const DEFAULT_MAX_TOKENS = 2000; // marge pour les modèles à réflexion (la réflexion consomme des jetons)
+const DEFAULT_TEMPERATURE = 0.3;
 
 function oai(id: string, url: string, key: string, model: string): Provider {
   return {
     id,
-    open: (system, user, signal) =>
+    open: (system, user, signal, p) =>
       fetch(url, {
         method: "POST",
         signal,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({
-          model, stream: true, temperature: 0.3, max_tokens: MAX_TOKENS,
+          model, stream: true, temperature: p.temperature, max_tokens: p.maxTokens,
           messages: [{ role: "system", content: system }, { role: "user", content: user }],
         }),
       }),
@@ -42,7 +53,7 @@ export function buildProviders(): Provider[] {
   [...new Set([...split(process.env.GEMINI_API_KEYS), ...split(process.env.GEMINI_API_KEY)])].forEach((key, i) =>
     list.push({
       id: `gemini#${i + 1}`,
-      open: (system, user, signal) =>
+      open: (system, user, signal, p) =>
         fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gModel}:streamGenerateContent?alt=sse`, {
           method: "POST",
           signal,
@@ -50,7 +61,7 @@ export function buildProviders(): Provider[] {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
             contents: [{ role: "user", parts: [{ text: user }] }],
-            generationConfig: { maxOutputTokens: MAX_TOKENS },
+            generationConfig: { maxOutputTokens: p.maxTokens, temperature: p.temperature },
           }),
         }),
       parse: (d) => {
@@ -108,25 +119,35 @@ async function* sseData(res: Response): AsyncGenerator<string> {
 // Mémoire d'instance (non partagée entre instances serverless)
 const cooldown = new Map<string, number>();
 const COOLDOWN_MS = 60_000;
-const FIRST_TOKEN_TIMEOUT_MS = 8_000;
+const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = 8_000;
 
-export async function* streamLLM(system: string, user: string): AsyncGenerator<LLMChunk> {
+export async function* streamLLM(system: string, user: string, options: LLMOptions = {}): AsyncGenerator<LLMChunk> {
   const providers = buildProviders();
   if (providers.length === 0) throw new LLMError("Aucune clé IA configurée (GEMINI_API_KEYS, GROQ_API_KEYS…).");
+
+  const params: CallParams = {
+    maxTokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
+    temperature: options.temperature ?? DEFAULT_TEMPERATURE,
+  };
+  const firstTokenMs = options.firstTokenTimeoutMs ?? DEFAULT_FIRST_TOKEN_TIMEOUT_MS;
+  const outer = options.signal;
 
   const now = Date.now();
   const ready = providers.filter((p) => (cooldown.get(p.id) ?? 0) <= now);
   const queue = ready.length > 0 ? ready : providers;
-  const tried: string[] = [];
   const failures: string[] = [];
 
   for (const p of queue) {
-    tried.push(p.id);
+    if (outer?.aborted) throw new LLMError("Délai global de l'étape dépassé", 408);
+
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), FIRST_TOKEN_TIMEOUT_MS);
+    const timer = setTimeout(() => ctrl.abort(), firstTokenMs);
+    const onOuterAbort = () => ctrl.abort();
+    outer?.addEventListener("abort", onOuterAbort, { once: true });
     let started = false;
+
     try {
-      const res = await p.open(system, user, ctrl.signal);
+      const res = await p.open(system, user, ctrl.signal, params);
       if (!res.ok) {
         const detail = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 140);
         throw new LLMError(`HTTP ${res.status} ${detail}`.trim(), res.status);
@@ -141,13 +162,31 @@ export async function* streamLLM(system: string, user: string): AsyncGenerator<L
       if (started) { cooldown.delete(p.id); return; }
       throw new LLMError("Réponse vide");
     } catch (e) {
-      if (started) throw e; // coupure en cours de réponse : on garde ce qui a été reçu
+      if (started) throw e; // coupure en cours de réponse : l'appelant décide quoi garder
+      // Notre propre délai global n'est pas la faute du fournisseur : pas de mise en pause.
+      if (outer?.aborted) throw new LLMError("Délai global de l'étape dépassé", 408);
       const status = e instanceof LLMError ? e.status : null;
       failures.push(`${p.id} : ${e instanceof Error && e.name === "AbortError" ? "délai dépassé" : e instanceof Error ? e.message : "erreur"}`);
       cooldown.set(p.id, Date.now() + (status === 401 || status === 403 ? 10 * COOLDOWN_MS : COOLDOWN_MS));
     } finally {
       clearTimeout(timer);
+      outer?.removeEventListener("abort", onOuterAbort);
     }
   }
   throw new LLMError(`Tous les fournisseurs IA ont échoué — ${failures.join(" | ")}`, 503);
+}
+
+// Appel sans affichage progressif : pour les étapes internes (plan, brouillons, analyses d'experts).
+export async function completeLLM(
+  system: string,
+  user: string,
+  options: LLMOptions = {}
+): Promise<{ text: string; provider: string }> {
+  let text = "";
+  let provider = "";
+  for await (const c of streamLLM(system, user, options)) {
+    provider = c.provider;
+    text += c.text;
+  }
+  return { text, provider };
 }
