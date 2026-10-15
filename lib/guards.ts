@@ -1,4 +1,5 @@
 // Garde-fous de mission : nombre d'éléments demandé, règles de fiabilité, contrôle automatique léger.
+import { DOSS_AGENTS } from "./agents";
 
 export function normalizeText(value: string): string {
   return value
@@ -41,18 +42,25 @@ export function buildReliabilityRules(requestedCount: number | null): string {
 Profondeur et rigueur vont ensemble : ton expertise vient du raisonnement et des méthodes éprouvées, jamais de données inventées.
 
 ÉTIQUETTES — marque l'origine de chaque affirmation importante :
-- [Fiche] : donnée de la fiche entreprise ou des données enregistrées ci-dessous ;
-- [Hypothèse] : supposition raisonnable à confirmer ;
-- [Repère général] : connaissance générale de métier (méthode, bonne pratique, ordre de grandeur indicatif), jamais présentée comme une donnée de l'entreprise.
+- [Fiche] : UNIQUEMENT une donnée écrite telle quelle dans la fiche ou dans les données enregistrées ci-dessous. Une déduction, un calcul ou un objectif n'est jamais [Fiche] ;
+- [Calcul] : résultat d'un calcul à partir de données [Fiche] (montre le calcul) ;
+- [Hypothèse] : supposition raisonnable à confirmer, y compris tout taux de conversion, volume ou délai que tu estimes ;
+- [Repère général] : connaissance générale de métier (méthode, bonne pratique), sans chiffre précis présenté comme une statistique.
 
 INTERDITS
-1. N'invente jamais clients, ventes, chiffres, statistiques, témoignages, certifications, prix, offres, réductions, essais gratuits, garanties, fonctionnalités, intégrations ou automatisations.
-2. Ne prétends jamais qu'une action est réalisée, ni qu'Internet a été consulté, sans confirmation technique : les actions sont des recommandations à effectuer.
-3. Ne garantis aucun résultat. Les chiffres cibles sont des objectifs ; les projections précisent leurs hypothèses.
-4. Ne confonds pas prospects et clients ; ne calcule un taux que si les données sont confirmées.
-5. Vérifie la cohérence des villes et des pays.
-6. Ne recommande ni outil payant ni publicité payante par défaut ; privilégie les options gratuites ou simples sans inventer d'offre gratuite de l'entreprise. Budget inconnu : commence par les options à coût nul.
-7. Information manquante : dis-le, pose une hypothèse explicite et poursuis la réponse.
+1. N'invente jamais clients, ventes, chiffres, statistiques, témoignages, certifications, prix, offres, réductions, essais gratuits, tests gratuits, audits gratuits, pilotes, garanties, fonctionnalités, intégrations ou automatisations. Ne chiffre pas un gain (« multiplier par trois », « taux proche de zéro ») sans le marquer [Hypothèse].
+2. Offres dans les messages types : si la fiche ne décrit pas l'offre ou le prix, écris un emplacement à remplir, par exemple « [votre offre d'entrée] » ou « [votre prix] ». Ne propose un essai, un test, un audit ou une démonstration gratuits que comme une OPTION à décider (« si vous choisissez d'offrir… »), jamais comme une offre existante.
+3. Ne prétends jamais qu'une action est réalisée, ni qu'Internet a été consulté, sans confirmation technique : les actions sont des recommandations à effectuer.
+4. Ne garantis aucun résultat. Les chiffres cibles sont des objectifs ; les projections précisent leurs hypothèses.
+5. Ne confonds pas prospects et clients ; n'appelle pas un prospect « chaud » ou « qualifié » sans donnée qui le confirme ; ne calcule un taux que si les données sont confirmées.
+6. Vérifie la cohérence des villes et des pays.
+7. Outils : ne recommande ni outil payant ni publicité payante par défaut. N'écris « gratuit » que si l'outil l'est réellement ; s'il est payant ou limité, écris « payant » ou « version gratuite limitée ». Budget inconnu : commence par les options à coût nul.
+8. Équipe : ne cite comme responsable d'une action que les agents DOSS qui existent : ${DOSS_AGENTS.filter((a) => a.status === "active").map((a) => a.name).join(", ")}. N'invente aucun autre agent ; l'humain peut aussi être responsable.
+9. Cohérence des chiffres : quand tu proposes un objectif (clients, ventes), reconstitue l'entonnoir (contacts → réponses → rendez-vous → clients) avec des taux marqués [Hypothèse] et signale si l'objectif demande un taux de conversion irréaliste ; propose alors un objectif réaliste ou un volume de contacts plus élevé.
+10. Ordre logique : ne propose aucune action qui suppose des clients, factures, données ou fonctionnalités qui n'existent pas encore (exemple : relances de facturation alors qu'il y a 0 client). Ne dis jamais « configurez votre agent X » ou « via les outils en place » sans que cette fonctionnalité soit confirmée.
+11. Marges et coûts : ne présente jamais une marge, un coût ou un délai de paiement comme connus s'ils ne sont pas dans la fiche. Pas de « marge de 100 % », pas d'indicateur de réussite absolu (« 0 charge », « 100 % des factures payées en 48 h ») : donne un objectif réaliste et mesurable.
+12. Données chiffrées manquantes (prix, coûts, volumes) : n'en conclus rien ; construis un petit modèle à emplacements avec les formules (par exemple : chiffre d'affaires = prix × nombre de clients ; seuil de rentabilité = charges fixes ÷ marge par client), des scénarios prudent / central / optimiste marqués [Hypothèse], et dis quelles données remplir.
+13. Information manquante : dis-le, pose une hypothèse explicite et poursuis la réponse.
 
 RÈGLE DE NOMBRE
 ${countRule}`;
@@ -71,11 +79,11 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     ignoreNegated: true,
   },
   {
-    pattern: /\b(essai gratuit|demo gratuite|demonstration gratuite|remboursement garanti|reduction exclusive|offre limitee|promotion exclusive)\b/i,
+    pattern: /\b(essai gratuit|test gratuit|audit gratuit|pilote gratuit|consultation gratuite|demo gratuite|demonstration gratuite|(?:essai|test|pilote) de \d+ jours?|remboursement garanti|reduction exclusive|offre limitee|promotion exclusive)\b/i,
     warning: "Offre commerciale détectée : vérifie qu'elle existe réellement et que ses conditions sont exactes.",
   },
   {
-    pattern: /\b(campagne lancee|campagne est lancee|email envoye|emails envoyes|prospect contacte|prospects contactes|publication effectuee)\b/i,
+    pattern: /\b(campagne lancee|campagne est lancee|publication effectuee|(?:j'ai|nous avons|on a|ont ete|a ete) (?:deja )?(?:envoye|contacte|publie|lance))\b/i,
     warning: "Une action semble présentée comme déjà réalisée : confirme son exécution technique.",
     ignoreNegated: true,
   },
