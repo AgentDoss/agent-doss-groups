@@ -671,6 +671,13 @@ VÉRIFICATION FINALE
   });
 
   return new Response(stream, {
+headers: {
+"Content-Type": "application/x-ndjson; charset=utf-8",
+"Cache-Control": "no-store, no-transform",
+"X-Accel-Buffering": "no",
+},
+});
+}
     headers: {
       "Content-Type": "application/x-ndjson; charset=utf-8",
       "Cache-Control": "no-store, no-transform",
