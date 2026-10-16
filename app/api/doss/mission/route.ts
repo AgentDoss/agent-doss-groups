@@ -365,7 +365,7 @@ RÈGLES D'UTILISATION
 - N'utilise que les statistiques indiquées.
 - Ne remplace jamais une donnée inconnue par une estimation inventée.
 - Distingue les données enregistrées des faits vérifiés indépendamment.
-- La devise du chiffre d'affaires n'est pas confirmée si elle n'est pas précisée.
+- La devise n'est incertaine que pour le « chiffre d'affaires mensuel » de la fiche entreprise. Les montants des clients et des achats sont toujours en FCFA : écris-les tels quels (« 25 000 FCFA »), sans « [à préciser] ».
 - Le score IA ne prouve pas à lui seul une performance commerciale.
 - Si une donnée est indisponible, indique-le clairement.
 - Les résumés du CRM (prospects, clients) sont anonymisés : ne demande pas à l'utilisateur une information déjà présente ici, et n'invente jamais de noms.
