@@ -84,7 +84,7 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     ignoreNegated: true,
   },
   {
-    pattern: /\b(essai gratuit|test gratuit|audit gratuit|pilote gratuit|consultation gratuite|demo gratuite|demonstration gratuite|(?:essai|test|pilote) de \d+ jours?|remboursement garanti|reduction exclusive|offre limitee|promotion exclusive)\b/i,
+    pattern: /\b(essai gratuit|test gratuit|audit gratuit|pilote gratuit|consultation gratuite|demo gratuite|demonstration gratuite|\d+ ?% de (?:remise|reduction)|remise de \d+|(?:essai|test|pilote) de \d+ jours?|remboursement garanti|reduction exclusive|offre limitee|promotion exclusive)\b/i,
     warning: "Offre commerciale détectée : vérifie qu'elle existe réellement et que ses conditions sont exactes.",
   },
   {
