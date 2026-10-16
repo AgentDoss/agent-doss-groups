@@ -51,6 +51,9 @@ export function buildProviders(): Provider[] {
 
   // GEMINI_MODEL accepte plusieurs modèles séparés par des virgules : le quota gratuit est
   // compté PAR MODÈLE, donc chaque modèle ajouté donne des requêtes par jour en plus.
+  // GEMINI_THINKING : minimal | low | medium | high | off (par défaut « low », plus rapide).
+  const thinkingRaw = (process.env.GEMINI_THINKING || "low").trim().toLowerCase();
+  const thinkingLevel = ["minimal", "low", "medium", "high"].includes(thinkingRaw) ? thinkingRaw : "";
   const gModels = split(process.env.GEMINI_MODEL);
   if (gModels.length === 0) gModels.push("gemini-3.6-flash");
   const gKeys = [...new Set([...split(process.env.GEMINI_API_KEYS), ...split(process.env.GEMINI_API_KEY)])];
@@ -58,17 +61,28 @@ export function buildProviders(): Provider[] {
     gKeys.forEach((key, i) =>
       list.push({
         id: `gemini#${i + 1}.${m + 1}`,
-        open: (system, user, signal, p) =>
-          fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gModel}:streamGenerateContent?alt=sse`, {
-            method: "POST",
-            signal,
-            headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: system }] },
-              contents: [{ role: "user", parts: [{ text: user }] }],
-              generationConfig: { maxOutputTokens: p.maxTokens, temperature: p.temperature },
-            }),
-          }),
+        open: async (system, user, signal, p) => {
+          const call = (withThinking: boolean) =>
+            fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gModel}:streamGenerateContent?alt=sse`, {
+              method: "POST",
+              signal,
+              headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: system }] },
+                contents: [{ role: "user", parts: [{ text: user }] }],
+                generationConfig: {
+                  maxOutputTokens: p.maxTokens,
+                  temperature: p.temperature,
+                  // Moins de « réflexion » interne = réponse beaucoup plus rapide (et pas de jetons perdus).
+                  ...(withThinking && thinkingLevel ? { thinkingConfig: { thinkingLevel } } : {}),
+                },
+              }),
+            });
+          const res = await call(true);
+          // Un modèle qui refuse ce réglage : on réessaie une fois sans, sans pénaliser le modèle.
+          if (res.status === 400 && thinkingLevel) return call(false);
+          return res;
+        },
         parse: (d) => {
           const parts = (d as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })?.candidates?.[0]?.content?.parts ?? [];
           return parts.map((p) => p.text ?? "").join("");
