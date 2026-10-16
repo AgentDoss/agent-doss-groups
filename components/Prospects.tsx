@@ -396,6 +396,77 @@ export default function Prospects() {
     await loadProspects(userId, companyId);
   };
     
+  const convertToClient = async (prospect: Prospect) => {
+    if (
+      prospect.user_id !== userId ||
+      prospect.company_id !== companyId
+    ) {
+      setError("Tu ne peux pas convertir ce prospect.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Convertir « ${prospect.name} » en client ?`
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+    setNotice("");
+
+    const supabase = getSupabase();
+
+    const { error: insertError } = await supabase
+      .from("doss_clients")
+      .insert({
+        user_id: userId,
+        company_id: companyId,
+        prospect_id: prospect.id,
+        name: prospect.name,
+        company: prospect.company,
+        email: prospect.email,
+        phone: prospect.phone,
+        status: "Actif",
+        source: "Converti depuis un prospect",
+      });
+
+    if (insertError) {
+      if (insertError.code === "23505") {
+        setError("Ce prospect est déjà dans tes clients.");
+      } else if (
+        insertError.code === "42P01" ||
+        insertError.code === "PGRST205"
+      ) {
+        setError(
+          "La table des clients n’existe pas encore. Exécute le script supabase/002_doss_clients.sql dans Supabase (SQL Editor)."
+        );
+      } else {
+        setError("Conversion impossible : " + insertError.message);
+      }
+      return;
+    }
+
+    const { error: statusError } = await supabase
+      .from("doss_prospects")
+      .update({ status: "Client gagné", next_follow_up: null })
+      .eq("id", prospect.id)
+      .eq("user_id", userId)
+      .eq("company_id", companyId);
+
+    if (statusError) {
+      setError(
+        "Le client a été créé, mais le statut du prospect n’a pas pu être mis à jour : " +
+          statusError.message
+      );
+    } else {
+      setNotice(
+        `« ${prospect.name} » est maintenant client. Retrouve-le dans la page Clients.`
+      );
+    }
+
+    await loadProspects(userId, companyId);
+  };
+
   const openWhatsApp = (prospect: Prospect) => {
     if (
       prospect.user_id !== userId ||
@@ -557,17 +628,30 @@ export default function Prospects() {
           }}
         >
           <Logo />
-          <a
-            href="/doss"
-            style={{
-              color: "#e5c76b",
-              textDecoration: "none",
-              fontSize: 15,
-              fontWeight: 700,
-            }}
-          >
-            ← Tableau de bord
-          </a>
+          <nav style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+            <a
+              href="/clients"
+              style={{
+                color: "#e5c76b",
+                textDecoration: "none",
+                fontSize: 15,
+                fontWeight: 700,
+              }}
+            >
+              👥 Clients
+            </a>
+            <a
+              href="/doss"
+              style={{
+                color: "#e5c76b",
+                textDecoration: "none",
+                fontSize: 15,
+                fontWeight: 700,
+              }}
+            >
+              ← Tableau de bord
+            </a>
+          </nav>
         </header>
 
         <h1
@@ -1019,6 +1103,20 @@ export default function Prospects() {
                         }}
                       >
                         📲 Relancer sur WhatsApp
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void convertToClient(prospect)}
+                        style={{
+                          ...buttonStyle,
+                          flex: "1 1 100%",
+                          background: "rgba(100,180,255,0.12)",
+                          color: "#8cc8ff",
+                          borderColor: "rgba(100,180,255,0.4)",
+                        }}
+                      >
+                        👥 Convertir en client
                       </button>
 
                       <button

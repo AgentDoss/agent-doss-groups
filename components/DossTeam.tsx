@@ -127,6 +127,7 @@ export default function DossTeam() {
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [companyId, setCompanyId] = useState("");
   const [prospectsCount, setProspectsCount] = useState(0);
+  const [clientsCount, setClientsCount] = useState(0);
   const [plan, setPlan] = useState<PlanId>("gratuit");
   const [used, setUsed] = useState(0);
   const [ready, setReady] = useState(false);
@@ -183,6 +184,16 @@ export default function DossTeam() {
             .select("id", { count: "exact", head: true })
             .eq("company_id", company.id);
 
+          // Nombre réel de clients ; repli sur la fiche si la table n'existe pas encore.
+          const { count: clientCount, error: clientCountError } = await sb
+            .from("doss_clients")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", company.id);
+
+          const customer_count = clientCountError
+            ? company.customer_count ?? 0
+            : clientCount ?? 0;
+
           if (countError) {
             console.error(
               "Erreur de comptage des prospects :",
@@ -191,12 +202,14 @@ export default function DossTeam() {
             return {
               ...company,
               prospect_count: company.lead_count ?? 0,
+              customer_count,
             };
           }
 
           return {
             ...company,
             prospect_count: count ?? 0,
+            customer_count,
           };
         })
       );
@@ -480,7 +493,25 @@ export default function DossTeam() {
       }
     }
 
+    async function loadClientsCount() {
+      try {
+        const { count, error } = await getSupabase()
+          .from("doss_clients")
+          .select("id", { count: "exact", head: true });
+
+        // Table pas encore créée : on garde 0 sans bruit.
+        if (error) return;
+
+        if (!cancelled) {
+          setClientsCount(count ?? 0);
+        }
+      } catch (e) {
+        console.error("Erreur de comptage des clients :", e);
+      }
+    }
+
     void loadProspectsCount();
+    void loadClientsCount();
 
     return () => {
       cancelled = true;
@@ -541,6 +572,10 @@ export default function DossTeam() {
 
             <a className="ghostButton" href="/prospects">
               🎯 Prospects ({prospectsCount})
+            </a>
+
+            <a className="ghostButton" href="/clients">
+              👥 Clients ({clientsCount})
             </a>
 
             <button className="ghostButton" onClick={logout}>
