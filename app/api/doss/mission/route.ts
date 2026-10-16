@@ -216,13 +216,16 @@ export async function POST(req: Request) {
       const dueToday = open.filter((r) => r.next_follow_up === todayIso).length;
       const planned = open.filter((r) => r.next_follow_up && r.next_follow_up > todayIso).length;
       const none = open.filter((r) => !r.next_follow_up).length;
+      const won = list.filter((r) => r.status === "Client gagné").length;
       const oldest = Math.max(...list.map((r) => daysSince(r.created_at) ?? 0));
 
       prospectSummary = [
         `- Prospects par statut : ${tally(list.map((r) => r.status))}`,
         `- Prospects par origine : ${tally(list.map((r) => r.source))}`,
-        `- Relances des prospects ouverts : ${overdue} en retard, ${dueToday} aujourd'hui, ${planned} à venir, ${none} sans relance planifiée`,
-        `- Ancienneté du plus ancien prospect : ${oldest} jour(s)`,
+        `- Prospects encore ouverts à traiter (hors « Client gagné » et « Perdu ») : ${open.length} sur ${list.length}`,
+        `- Prospects au statut « Client gagné » : ${won} (déjà gagnés : à ne plus relancer comme prospects ; à rapprocher de la liste des clients)`,
+        `- Relances des prospects ouverts : ${overdue} en retard (date de relance dépassée), ${dueToday} aujourd'hui, ${planned} à venir, ${none} sans relance planifiée`,
+        `- Ancienneté du plus ancien prospect : ${oldest} jour(s) depuis sa création dans le CRM (ce n'est pas un délai de retard de relance)`,
       ];
     }
   }
@@ -256,7 +259,9 @@ export async function POST(req: Request) {
           ? rows.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0)
           : null,
         // Une ligne anonymisée par client (15 maximum) : pas de nom ni de coordonnées.
-        lines: rows.slice(0, 15).map((r, i) => {
+        lines: [
+          `- Clients sans date de dernier achat renseignée : ${rows.filter((r) => !r.last_purchase_date).length} sur ${clientTotal} (donnée à compléter dans la page Clients)`,
+          ...rows.slice(0, 15).map((r, i) => {
           const sincePurchase = daysSince(r.last_purchase_date);
           const sinceAdded = daysSince(r.created_at);
           const amount = Number(r.total_amount) || 0;
@@ -272,7 +277,8 @@ export async function POST(req: Request) {
             `montant des achats : ${amount > 0 ? `${Math.round(amount)} FCFA` : "non renseigné"} ; ` +
             `relance : ${followUp}`
           );
-        }),
+          }),
+        ],
       };
     }
   }
