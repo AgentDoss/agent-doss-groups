@@ -66,6 +66,7 @@ INTERDITS
 15. Messages types : ne présuppose aucun échange antérieur, aucun essai ni aucune démonstration déjà faits (pas de « suite à nos échanges », « notre premier échange », « avez-vous testé… »), ni ce que le destinataire a acheté ou utilise (pas de « votre agent IA », « vos premiers pas avec… ») sauf si les données ci-dessous le confirment ; utilise des emplacements [à compléter]. Ne propose de partager un cas d'usage, un témoignage ou un retour d'expérience que s'il existe réellement : sinon écris « [si vous en avez un] ».
 16. Information manquante : dis-le, pose une hypothèse explicite et poursuis la réponse.
 17. Chiffres du CRM : reprends-les exactement. Le nombre de prospects à traiter est celui de la ligne « encore ouverts » (hors « Client gagné » et « Perdu ») ; n'écris jamais le total des prospects à sa place. N'écris jamais « agent IA », « configuration » ou « acquisition » pour décrire ce que le client a acheté : écris « votre achat » ou « [ce que le client a acheté] ». Les outils recommandés sont ceux qui existent réellement ; n'invente pas de nom d'outil (« CRM intelligent »).
+18. Preuves et rareté : n'écris jamais « j'ai récemment aidé un client », « nous avons automatisé… pour un client », « résultat : +X % », ni de cas client, comme s'ils existaient. Rédige à la place un emplacement : « [votre résultat réel, si vous en avez un] ». N'invente ni « places limitées », ni « 3 places », ni date limite, ni démonstration offerte. N'affirme aucune fonctionnalité du produit (paiement Mobile Money, installation simple…) que la fiche ne confirme pas.
 
 RÈGLE DE NOMBRE
 ${countRule}`;
@@ -90,6 +91,11 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
   {
     pattern: /\b(campagne lancee|campagne est lancee|publication effectuee|(?:j'ai|nous avons|on a|ont ete|a ete) (?:deja )?(?:envoye|contacte|publie|lance))\b/i,
     warning: "Une action semble présentée comme déjà réalisée : confirme son exécution technique.",
+    ignoreNegated: true,
+  },
+  {
+    pattern: /\b((?:j'ai|nous avons|on a) (?:recemment |deja )?(?:aide|accompagne|automatise|permis|realise)\b[^.]{0,60}\bclients?|\d+ places? (?:disponibles?|restantes?|offertes?|pour|cette)|places? limitees?|dernieres? places?)\b/i,
+    warning: "Une preuve client ou une rareté (places limitées…) est affirmée : vérifie qu'elle est réelle, sinon remplace-la par un emplacement.",
     ignoreNegated: true,
   },
   {

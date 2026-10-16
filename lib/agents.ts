@@ -223,7 +223,8 @@ export type PromptMode = "quick" | "deep" | "contribution";
 
 const MARKET_CONTEXT = `ADAPTATION AU MARCHÉ LOCAL
 - Ancre chaque recommandation dans le pays, la ville et la cible de la fiche entreprise.
-- Si le marché est l'Afrique de l'Ouest francophone, tu peux t'appuyer sur les usages courants du terrain : WhatsApp comme canal de relation principal, paiement par Mobile Money (Orange Money, MTN MoMo, Moov Money, Wave selon le pays), poids du bouche-à-oreille et de la confiance personnelle, importance de la démonstration avant l'achat, sensibilité au prix et au coût des données mobiles. Présente-les comme des repères généraux, jamais comme des faits sur l'entreprise.`;
+- Si le marché est l'Afrique de l'Ouest francophone, tu peux t'appuyer sur les usages courants du terrain : WhatsApp comme canal de relation principal, paiement par Mobile Money (Orange Money, MTN MoMo, Moov Money, Wave selon le pays), poids du bouche-à-oreille et de la confiance personnelle, importance de la démonstration avant l'achat, sensibilité au prix et au coût des données mobiles. Présente-les comme des repères généraux, jamais comme des faits sur l'entreprise.
+- Prévoir les premières ventes : quand on te demande combien vendre ou quel objectif viser, ne dis pas « impossible ». Reconstitue un entonnoir mensuel avec trois scénarios (prudent / central / optimiste), tous marqués [Hypothèse] : démarches par mois → réponses → rendez-vous ou démonstrations → ventes, puis chiffre d'affaires = ventes × prix réel de la fiche. Ordre de grandeur de départ à proposer comme hypothèses à tester : 40 / 80 / 120 démarches personnalisées par mois ; 10 % / 25 % / 30 % de réponses ; 25 % / 30 % / 25 % des réponses qui deviennent un rendez-vous ; 15 % / 25 % / 25 % des rendez-vous qui deviennent une vente (soit environ 0 à 1, 1 à 2, puis 2 à 3 ventes par mois au départ). Précise que ces taux viennent de repères de prospection généraux, non vérifiés pour ce marché, et qu'ils doivent être remplacés par les résultats réels de l'utilisateur après 30 jours de suivi. Compare toujours le résultat au seuil de rentabilité. Les leviers pour dépasser ces ordres de grandeur : recommandation du premier client, partenaires apporteurs d'affaires, offre récurrente (maintenance ou abonnement) plutôt qu'une vente unique.`;
 
 const FORMAT_QUICK = `FORMAT (réponse courte, 150 à 350 mots) :
 ## Synthèse
@@ -245,7 +246,7 @@ Applique le ou les cadres pertinents de ta méthode. 3 à 5 points : chacun expl
 ## Options et arbitrage
 2 à 3 pistes avec avantages, risques et effort. Recommande-en une et justifie ton choix.
 ## Plan d'action priorisé
-Suis la RÈGLE DE NOMBRE. Pour chaque action : Pourquoi · Comment (étapes concrètes, modèles ou exemples utilisables) · Qui · Quand · Outil gratuit ou simple · Indicateur de réussite.
+Suis la RÈGLE DE NOMBRE. Pour chaque action, un bloc numéroté avec une ligne par champ : Pourquoi · Comment (étapes concrètes, modèles ou exemples utilisables) · Qui · Quand · Outil gratuit ou simple · Indicateur de réussite. N'utilise JAMAIS de tableau Markdown (illisible sur téléphone). Si la demande est un plan de contenu ou un calendrier : donne un calendrier jour par jour, avec pour chaque publication ou message le texte prêt à copier (emplacements entre crochets).
 ## Risques et hypothèses
 Ce qui peut faire échouer le plan, et ce qu'il faut vérifier.
 ## Prochaine action immédiate
