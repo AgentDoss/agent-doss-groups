@@ -170,20 +170,84 @@ export async function POST(req: Request) {
     }
   }
 
+  // Résumés anonymisés du CRM (statuts, relances, origines) : ils donnent de la matière aux
+  // agents sans envoyer de noms ni de coordonnées au modèle IA. Meilleur effort : en cas
+  // d'erreur, on continue avec les seuls compteurs.
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const daysSince = (iso: string | null | undefined): number | null => {
+    if (!iso) return null;
+    const t = new Date(iso).getTime();
+    return Number.isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 86_400_000)) : null;
+  };
+
+  const tally = (values: Array<string | null | undefined>): string => {
+    const counts: Record<string, number> = {};
+    for (const v of values) {
+      const key = (v ?? "").trim() || "non renseigné";
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([k, n]) => `${k} : ${n}`)
+      .join(" ; ");
+  };
+
+  let prospectSummary: string[] = [];
+
+  if (company?.id) {
+    const { data: pRows, error: pError } = await sb
+      .from("doss_prospects")
+      .select("status,source,next_follow_up,created_at")
+      .eq("user_id", u.user.id)
+      .eq("company_id", String(company.id))
+      .limit(500);
+
+    if (!pError && pRows && pRows.length > 0) {
+      const list = pRows as Array<{
+        status: string | null;
+        source: string | null;
+        next_follow_up: string | null;
+        created_at: string | null;
+      }>;
+      const open = list.filter((r) => r.status !== "Client gagné" && r.status !== "Perdu");
+      const overdue = open.filter((r) => r.next_follow_up && r.next_follow_up < todayIso).length;
+      const dueToday = open.filter((r) => r.next_follow_up === todayIso).length;
+      const planned = open.filter((r) => r.next_follow_up && r.next_follow_up > todayIso).length;
+      const none = open.filter((r) => !r.next_follow_up).length;
+      const oldest = Math.max(...list.map((r) => daysSince(r.created_at) ?? 0));
+
+      prospectSummary = [
+        `- Prospects par statut : ${tally(list.map((r) => r.status))}`,
+        `- Prospects par origine : ${tally(list.map((r) => r.source))}`,
+        `- Relances des prospects ouverts : ${overdue} en retard, ${dueToday} aujourd'hui, ${planned} à venir, ${none} sans relance planifiée`,
+        `- Ancienneté du plus ancien prospect : ${oldest} jour(s)`,
+      ];
+    }
+  }
+
   // Clients réellement enregistrés dans le CRM (meilleur effort : si la table n'existe pas
   // encore, on retombe sur le nombre indiqué dans la fiche entreprise).
-  let clientStats: { count: number; dormant: number; total: number | null } | null = null;
+  let clientStats: { count: number; dormant: number; total: number | null; lines: string[] } | null = null;
 
   if (company?.id) {
     const { data: clientRows, count: clientTotal, error: clientsError } = await sb
       .from("doss_clients")
-      .select("status,total_amount", { count: "exact" })
+      .select("status,total_amount,last_purchase_date,next_follow_up,created_at,source", { count: "exact" })
       .eq("user_id", u.user.id)
       .eq("company_id", String(company.id))
       .limit(1000);
 
     if (!clientsError && clientRows && typeof clientTotal === "number") {
-      const rows = clientRows as Array<{ status: string | null; total_amount: number | null }>;
+      const rows = clientRows as Array<{
+        status: string | null;
+        total_amount: number | null;
+        last_purchase_date: string | null;
+        next_follow_up: string | null;
+        created_at: string | null;
+        source: string | null;
+      }>;
       clientStats = {
         count: clientTotal,
         dormant: rows.filter((r) => r.status === "À réactiver" || r.status === "Inactif").length,
@@ -191,6 +255,24 @@ export async function POST(req: Request) {
         total: rows.length === clientTotal
           ? rows.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0)
           : null,
+        // Une ligne anonymisée par client (15 maximum) : pas de nom ni de coordonnées.
+        lines: rows.slice(0, 15).map((r, i) => {
+          const sincePurchase = daysSince(r.last_purchase_date);
+          const sinceAdded = daysSince(r.created_at);
+          const amount = Number(r.total_amount) || 0;
+          const followUp = r.next_follow_up
+            ? r.next_follow_up < todayIso
+              ? `en retard (${r.next_follow_up})`
+              : r.next_follow_up
+            : "non planifiée";
+          return (
+            `- Client ${i + 1} (anonymisé) : statut ${r.status ?? "non renseigné"} ; ` +
+            `origine ${r.source ?? "non renseignée"} ; ajouté au CRM il y a ${sinceAdded ?? "?"} jour(s) ; ` +
+            `dernier achat : ${sincePurchase === null ? "aucun enregistré" : `il y a ${sincePurchase} jour(s)`} ; ` +
+            `montant des achats : ${amount > 0 ? `${Math.round(amount)} FCFA` : "non renseigné"} ; ` +
+            `relance : ${followUp}`
+          );
+        }),
       };
     }
   }
@@ -223,6 +305,8 @@ export async function POST(req: Request) {
         : "- Nombre de prospects : indisponible, comptage non confirmé."
     );
 
+    lines.push(...prospectSummary);
+
     const customerCount = company.customer_count;
 
     if (clientStats) {
@@ -237,6 +321,7 @@ export async function POST(req: Request) {
           `- Montant total des achats saisis pour ces clients : ${Math.round(clientStats.total)} FCFA (saisi manuellement, non vérifié)`
         );
       }
+      lines.push(...clientStats.lines);
     } else {
       lines.push(
         typeof customerCount === "number" && Number.isFinite(customerCount)
@@ -276,7 +361,9 @@ RÈGLES D'UTILISATION
 - Distingue les données enregistrées des faits vérifiés indépendamment.
 - La devise du chiffre d'affaires n'est pas confirmée si elle n'est pas précisée.
 - Le score IA ne prouve pas à lui seul une performance commerciale.
-- Si une donnée est indisponible, indique-le clairement.`
+- Si une donnée est indisponible, indique-le clairement.
+- Les résumés du CRM (prospects, clients) sont anonymisés : ne demande pas à l'utilisateur une information déjà présente ici, et n'invente jamais de noms.
+- Un statut ou une date saisis dans le CRM sont des données [Fiche] ; leur interprétation reste une [Hypothèse].`
     : `CONTEXTE : aucune fiche entreprise renseignée.
 N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
 
