@@ -170,6 +170,31 @@ export async function POST(req: Request) {
     }
   }
 
+  // Clients réellement enregistrés dans le CRM (meilleur effort : si la table n'existe pas
+  // encore, on retombe sur le nombre indiqué dans la fiche entreprise).
+  let clientStats: { count: number; dormant: number; total: number | null } | null = null;
+
+  if (company?.id) {
+    const { data: clientRows, count: clientTotal, error: clientsError } = await sb
+      .from("doss_clients")
+      .select("status,total_amount", { count: "exact" })
+      .eq("user_id", u.user.id)
+      .eq("company_id", String(company.id))
+      .limit(1000);
+
+    if (!clientsError && clientRows && typeof clientTotal === "number") {
+      const rows = clientRows as Array<{ status: string | null; total_amount: number | null }>;
+      clientStats = {
+        count: clientTotal,
+        dormant: rows.filter((r) => r.status === "À réactiver" || r.status === "Inactif").length,
+        // Total fiable seulement si toutes les lignes ont été lues.
+        total: rows.length === clientTotal
+          ? rows.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0)
+          : null,
+      };
+    }
+  }
+
   const labels: Array<[string, string]> = [
     ["name", "Nom"],
     ["activity", "Activité"],
@@ -199,11 +224,26 @@ export async function POST(req: Request) {
     );
 
     const customerCount = company.customer_count;
-    lines.push(
-      typeof customerCount === "number" && Number.isFinite(customerCount)
-        ? `- Nombre de clients enregistré dans la fiche : ${customerCount}`
-        : "- Nombre de clients : non confirmé dans la fiche entreprise."
-    );
+
+    if (clientStats) {
+      lines.push(
+        `- Nombre réel de clients enregistrés dans le CRM : ${clientStats.count}` +
+          (clientStats.count > 0
+            ? ` (dont ${clientStats.dormant} à réactiver ou inactifs)`
+            : "")
+      );
+      if (clientStats.total !== null && clientStats.total > 0) {
+        lines.push(
+          `- Montant total des achats saisis pour ces clients : ${Math.round(clientStats.total)} FCFA (saisi manuellement, non vérifié)`
+        );
+      }
+    } else {
+      lines.push(
+        typeof customerCount === "number" && Number.isFinite(customerCount)
+          ? `- Nombre de clients enregistré dans la fiche : ${customerCount}`
+          : "- Nombre de clients : non confirmé dans la fiche entreprise."
+      );
+    }
 
     const revenue = company.monthly_revenue;
     lines.push(
