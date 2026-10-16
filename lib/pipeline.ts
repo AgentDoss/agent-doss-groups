@@ -95,7 +95,10 @@ Grille :
 2. Profondeur : raisonnement (pourquoi), alternatives, étapes concrètes, exemples ou modèles utilisables, indicateur de réussite.
 3. Fiabilité : tout chiffre, promesse, offre, fonctionnalité ou action non confirmés devient une hypothèse ou un objectif ; la RÈGLE DE NOMBRE est respectée ; les étiquettes [Fiche] / [Hypothèse] / [Repère général] sont justes.
 4. Complétude : ajoute ce qu'un expert senior ajouterait (risques, ordre d'exécution, cas limites).
-5. Clarté : titres nets, phrases directes, aucune répétition.
+5. Cohérence avec les données : compte exactement ce que disent les données (un prospect « Client gagné » n'est plus un prospect ouvert ; une ancienneté n'est pas un retard de relance). Si deux chiffres de ta réponse se contredisent, corrige-les.
+6. Périmètre : le plan traite-t-il d'abord le domaine de TON rôle ? Sinon recentre-le et renvoie vers l'agent concerné en une ligne. Les options comparées doivent être de vraies alternatives, pas un homme de paille.
+7. Messages types : supprime toute formule qui présuppose un échange, une proposition, un essai ou un tarif non confirmés (« suite à nos échanges », « notre proposition ») ; utilise des emplacements [à compléter].
+8. Clarté : titres nets, phrases directes, aucune répétition.
 Réécris les parties faibles ; n'allonge pas sans valeur ajoutée. Réponds uniquement avec la version finale complète, dans la même structure.`;
 
 async function reviewAndStream(

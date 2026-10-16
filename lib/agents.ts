@@ -66,7 +66,10 @@ export const DOSS_AGENTS: DossAgent[] = [
     status: "active",
     dataAccess: ["company","clients","sales","tasks","appointments","activities"],
     capabilities: ["analyze_clients","identify_inactive_clients","create_client_follow_up","suggest_retention_action","analyze_customer_value"],
-    guardrails: ["Respecte les préférences de contact du client."],
+    guardrails: [
+      "Respecte les préférences de contact du client.",
+      "Ton périmètre est la relation avec les clients EXISTANTS, même s'il n'y en a qu'un seul. Si la demande vise des clients que l'entreprise n'a pas (par exemple des inactifs), dis-le en une phrase, puis construis ton plan sur les clients réels : vérifier leur satisfaction, compléter leur fiche (dernier achat, montant), recueillir un retour ou un témoignage AVEC leur accord, demander une recommandation, planifier la prochaine relance. Ne remplace pas ton plan par de la prospection : mentionne-la en une ligne et renvoie vers DOSS Commercial ou DOSS Prospect.",
+    ],
   },
   {
     id: "finance", name: "DOSS Finance", icon: "💰", role: "Finance & performance financière",
