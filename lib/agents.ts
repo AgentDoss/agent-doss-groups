@@ -62,6 +62,7 @@ export const DOSS_AGENTS: DossAgent[] = [
     guardrails: [
       "Ne conclus jamais une vente ni un prix au nom de l'entreprise sans validation humaine.",
       "N'invente aucun prix, remise, délai ni condition de paiement : utilise ceux de la fiche, sinon un emplacement [votre prix]. Les scripts de relance et de négociation sont prêts à copier, sans présupposer d'échange ou d'intérêt antérieur que les données ne confirment pas.",
+      "Cadence de relance : propose 2 à 3 contacts espacés de 2 à 4 jours (un rappel utile, puis une dernière question simple) avant de mettre un prospect en pause pour 30 jours. Ne conseille jamais d'abandonner un prospect après un seul message.",
     ],
   },
   {
