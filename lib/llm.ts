@@ -49,26 +49,32 @@ function oai(id: string, url: string, key: string, model: string): Provider {
 export function buildProviders(): Provider[] {
   const list: Provider[] = [];
 
-  const gModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
-  [...new Set([...split(process.env.GEMINI_API_KEYS), ...split(process.env.GEMINI_API_KEY)])].forEach((key, i) =>
-    list.push({
-      id: `gemini#${i + 1}`,
-      open: (system, user, signal, p) =>
-        fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gModel}:streamGenerateContent?alt=sse`, {
-          method: "POST",
-          signal,
-          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: system }] },
-            contents: [{ role: "user", parts: [{ text: user }] }],
-            generationConfig: { maxOutputTokens: p.maxTokens, temperature: p.temperature },
+  // GEMINI_MODEL accepte plusieurs modèles séparés par des virgules : le quota gratuit est
+  // compté PAR MODÈLE, donc chaque modèle ajouté donne des requêtes par jour en plus.
+  const gModels = split(process.env.GEMINI_MODEL);
+  if (gModels.length === 0) gModels.push("gemini-3.6-flash");
+  const gKeys = [...new Set([...split(process.env.GEMINI_API_KEYS), ...split(process.env.GEMINI_API_KEY)])];
+  gModels.forEach((gModel, m) =>
+    gKeys.forEach((key, i) =>
+      list.push({
+        id: `gemini#${i + 1}.${m + 1}`,
+        open: (system, user, signal, p) =>
+          fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gModel}:streamGenerateContent?alt=sse`, {
+            method: "POST",
+            signal,
+            headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: system }] },
+              contents: [{ role: "user", parts: [{ text: user }] }],
+              generationConfig: { maxOutputTokens: p.maxTokens, temperature: p.temperature },
+            }),
           }),
-        }),
-      parse: (d) => {
-        const parts = (d as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })?.candidates?.[0]?.content?.parts ?? [];
-        return parts.map((p) => p.text ?? "").join("");
-      },
-    })
+        parse: (d) => {
+          const parts = (d as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })?.candidates?.[0]?.content?.parts ?? [];
+          return parts.map((p) => p.text ?? "").join("");
+        },
+      })
+    )
   );
 
   const grModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
@@ -145,11 +151,15 @@ export async function* streamLLM(system: string, user: string, options: LLMOptio
     const onOuterAbort = () => ctrl.abort();
     outer?.addEventListener("abort", onOuterAbort, { once: true });
     let started = false;
+    let dailyExhausted = false;
 
     try {
       const res = await p.open(system, user, ctrl.signal, params);
       if (!res.ok) {
-        const detail = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 140);
+        const body = (await res.text().catch(() => "")).replace(/\s+/g, " ");
+        const detail = body.slice(0, 140);
+        // Quota journalier épuisé : inutile de réessayer avant longtemps.
+        if (res.status === 429 && /per ?day|daily|PerDay/i.test(body)) dailyExhausted = true;
         throw new LLMError(`HTTP ${res.status} ${detail}`.trim(), res.status);
       }
       for await (const raw of sseData(res)) {
@@ -167,7 +177,10 @@ export async function* streamLLM(system: string, user: string, options: LLMOptio
       if (outer?.aborted) throw new LLMError("Délai global de l'étape dépassé", 408);
       const status = e instanceof LLMError ? e.status : null;
       failures.push(`${p.id} : ${e instanceof Error && e.name === "AbortError" ? "délai dépassé" : e instanceof Error ? e.message : "erreur"}`);
-      cooldown.set(p.id, Date.now() + (status === 401 || status === 403 ? 10 * COOLDOWN_MS : COOLDOWN_MS));
+      cooldown.set(
+        p.id,
+        Date.now() + (dailyExhausted ? 30 * COOLDOWN_MS : status === 401 || status === 403 ? 10 * COOLDOWN_MS : COOLDOWN_MS)
+      );
     } finally {
       clearTimeout(timer);
       outer?.removeEventListener("abort", onOuterAbort);
