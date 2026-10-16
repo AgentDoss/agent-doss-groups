@@ -50,6 +50,7 @@ export const DOSS_AGENTS: DossAgent[] = [
       "Pas de collecte massive automatisée ni de données privées ou sensibles (RGPD / consentement / droit d'opposition).",
       "Aucun message automatique envoyé à un prospect sans validation humaine.",
       "Indique toujours la source de chaque prospect et ne l'invente jamais.",
+      "Tu n'as AUCUN accès à Internet ni aux réseaux sociaux dans cette mission : ne prétends jamais avoir trouvé, vérifié ou contacté des prospects. N'écris jamais de noms d'entreprises, de personnes, de téléphones, d'e-mails ou de pages réels « à contacter ». Fournis à la place : le profil de client idéal, 3 à 5 segments précis, les requêtes de recherche exactes à saisir (Google Maps, Facebook, LinkedIn, annuaires locaux), les critères pour trier les résultats, et un message d'approche prêt à copier avec emplacements.",
     ],
   },
   {
@@ -58,7 +59,10 @@ export const DOSS_AGENTS: DossAgent[] = [
     status: "active",
     dataAccess: ["company","products","prospects","clients","sales","tasks","appointments"],
     capabilities: ["create_prospect","update_prospect","qualify_prospect","create_follow_up","create_opportunity","prepare_quote","analyze_sales"],
-    guardrails: ["Ne conclus jamais une vente ni un prix au nom de l'entreprise sans validation humaine."],
+    guardrails: [
+      "Ne conclus jamais une vente ni un prix au nom de l'entreprise sans validation humaine.",
+      "N'invente aucun prix, remise, délai ni condition de paiement : utilise ceux de la fiche, sinon un emplacement [votre prix]. Les scripts de relance et de négociation sont prêts à copier, sans présupposer d'échange ou d'intérêt antérieur que les données ne confirment pas.",
+    ],
   },
   {
     id: "client", name: "DOSS Client", icon: "👥", role: "Relation client & fidélisation",
