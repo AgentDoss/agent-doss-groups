@@ -20,6 +20,7 @@ interface Client {
   next_follow_up: string | null;
   source: string | null;
   notes: string | null;
+  product?: string | null;
   created_at?: string | null;
 }
 
@@ -30,8 +31,8 @@ interface Company {
 
 const STATUSES = ["Actif", "VIP", "À réactiver", "Inactif"];
 
-const CLIENT_COLUMNS =
-  "id,user_id,company_id,prospect_id,name,company,email,phone,status,total_amount,last_purchase_date,next_follow_up,source,notes,created_at";
+// « * » : fonctionne avec ou sans la colonne « product » (migration 003).
+const CLIENT_COLUMNS = "*";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -150,6 +151,7 @@ export default function Clients() {
   const [lastPurchase, setLastPurchase] = useState("");
   const [nextFollowUp, setNextFollowUp] = useState("");
   const [notes, setNotes] = useState("");
+  const [product, setProduct] = useState("");
 
   const loadClients = useCallback(
     async (ownerId: string, selectedCompanyId: string) => {
@@ -262,6 +264,7 @@ export default function Clients() {
     setLastPurchase("");
     setNextFollowUp("");
     setNotes("");
+    setProduct("");
     setError("");
     setNotice("");
   };
@@ -327,6 +330,8 @@ export default function Clients() {
         last_purchase_date: lastPurchase || null,
         next_follow_up: nextFollowUp || null,
         notes: notes.trim() || null,
+        // Envoyé seulement s'il est rempli : la page reste utilisable avant la migration 003.
+        ...(product.trim() || editingId ? { product: product.trim() || null } : {}),
       };
 
       if (editingId) {
@@ -402,6 +407,7 @@ export default function Clients() {
     setLastPurchase(client.last_purchase_date ?? "");
     setNextFollowUp(client.next_follow_up ?? "");
     setNotes(client.notes ?? "");
+    setProduct(client.product ?? "");
     setError("");
     setNotice("");
 
@@ -532,6 +538,7 @@ export default function Clients() {
       client.phone,
       client.status,
       client.notes,
+      client.product,
     ].some((value) => (value ?? "").toLowerCase().includes(term));
   });
 
@@ -732,6 +739,21 @@ export default function Clients() {
               placeholder="Ex. : 150000"
               style={inputStyle}
             />
+
+            <label style={labelStyle} htmlFor="client-product">
+              🧾 Offre achetée
+            </label>
+            <input
+              id="client-product"
+              value={product}
+              onChange={(event) => setProduct(event.target.value)}
+              placeholder="Ex : Pack Démarrage WhatsApp (sans nom de personne)"
+              maxLength={120}
+              style={inputStyle}
+            />
+            <p style={{ color: "#a7a7b4", fontSize: 13, marginTop: 8 }}>
+              Les agents IA lisent cette ligne (jamais le nom ni les notes du client).
+            </p>
 
             <label style={labelStyle} htmlFor="client-last-purchase">
               🛒 Date du dernier achat
