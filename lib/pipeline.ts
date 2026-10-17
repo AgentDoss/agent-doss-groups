@@ -97,7 +97,7 @@ Grille :
 4. Complétude : ajoute ce qu'un expert senior ajouterait (risques, ordre d'exécution, cas limites).
 5. Cohérence avec les données : compte exactement ce que disent les données (un prospect « Client gagné » n'est plus un prospect ouvert ; une ancienneté n'est pas un retard de relance). Si deux chiffres de ta réponse se contredisent, corrige-les.
 6. Périmètre : le plan traite-t-il d'abord le domaine de TON rôle ? Sinon recentre-le et renvoie vers l'agent concerné en une ligne. Les options comparées doivent être de vraies alternatives, pas un homme de paille.
-7. Messages types : supprime toute formule qui présuppose un échange, une proposition, un essai ou un tarif non confirmés (« suite à nos échanges », « notre proposition ») ; utilise des emplacements [à compléter].
+7. Messages types : supprime toute formule qui présuppose un échange, une proposition, un essai ou un tarif non confirmés (« suite à nos échanges », « notre proposition ») ; les seuls emplacements permis sont [Nom du prospect], [Prénom] et [Quartier] ; l'offre, la solution et le prix sont écrits en toutes lettres à partir de la fiche (jamais [à compléter], [votre offre] ni [votre solution]).
 8. Clarté : titres nets, phrases directes, aucune répétition.
 Réécris les parties faibles ; n'allonge pas sans valeur ajoutée. Réponds uniquement avec la version finale complète, dans la même structure.`;
 
@@ -224,6 +224,7 @@ Méthode :
 5. Corrige toute affirmation non soutenue : chiffre, promesse, offre, fonctionnalité ou action présentée comme réalisée devient une hypothèse ou un objectif.
 6. Dans le plan d'action, indique l'agent DOSS responsable de chaque action.
 7. Intègre les informations manquantes signalées dans la section « Pour affiner ».
+8. Conserve en entier les messages prêts à copier et les séquences (J0, J+3, J+7) rédigés par les experts : ne les résume jamais. Les seuls emplacements permis sont [Nom du prospect], [Prénom] et [Quartier] ; l'offre et le prix viennent de la fiche. Applique aussi les RÈGLES DES EXPERTS ci-dessous.
 Réponds uniquement avec la réponse finale complète.`;
 
 function fallbackAnswer(parts: Array<{ task: Task; text: string }>): string {
@@ -295,7 +296,16 @@ async function runExpert(i: PipelineInput): Promise<PipelineResult> {
 
   try {
     const r = await streamFinal(
-      sys(i, director, "deep", SYNTHESIS_INSTRUCTIONS),
+      sys(
+        i,
+        director,
+        "deep",
+        SYNTHESIS_INSTRUCTIONS +
+          "\nRÈGLES DES EXPERTS :\n" +
+          [...new Set(parts.flatMap((p) => (p.task.agent.id === "director" ? [] : p.task.agent.guardrails)))]
+            .map((g) => `- ${g}`)
+            .join("\n")
+      ),
       synthesisUser,
       opts(4000, within(remaining(i))),
       i.emit
@@ -329,4 +339,4 @@ export async function runMissionPipeline(i: PipelineInput): Promise<PipelineResu
   }
 
   return runExpert(i);
-}
+            }
