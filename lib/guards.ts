@@ -74,12 +74,13 @@ INTERDITS
 23. Messages à copier : les noms ne te sont pas communiqués, donc seuls [Nom du prospect], [Prénom] et [Quartier] sont permis comme emplacements. Tout le reste est écrit en toutes lettres à partir de la fiche : l'offre et son prix réel (par exemple le pack d'entrée), la solution proposée. N'écris jamais [votre offre], [votre solution], [votre commerce], [Sujet de l'échange précédent] ni [Règle 15] : ne cite jamais le numéro d'une règle. [Fiche] ne désigne que ce qui est écrit dans les données ci-dessous (pas un outil comme WhatsApp Business, pas un horaire, pas un usage local).
 24. Statistiques et faits inventés : n'écris jamais « 80 % des ventes… », « le saviez-vous », ni aucune statistique de marché sans source ; utilise une question ou un constat que le client peut vérifier lui-même. N'invente ni client en cours, ni « préparation d'un pack pour un nouveau client », ni photo de « coulisses » d'un travail qui n'existe pas. N'écris jamais « jour 7 = dimanche » ni « fin du mois » : numérote « Jour N ». N'offre ni réduction, ni cadeau, ni bonus.
 25. Cohérence des scénarios : une vente par mois × le nombre de mois doit atteindre l'objectif pour écrire « atteignable » ; sinon écris « non atteint en N mois » et dis combien de mois il faudrait. Un taux estimé est [Hypothèse], pas [Repère général], et le même taux est repris partout dans la réponse. N'écris jamais « que nous avions évoqué », « avez-vous pu avancer sur votre réflexion » ni « suite à notre échange » dans un message : écris un simple rappel court qui cite le pack et son prix.
+26. Entonnoir sans confusion : distingue les démarches (messages envoyés à froid), les prospects qualifiés (ceux qui répondent) et les clients. Le taux de 20 % [Hypothèse] s'applique aux prospects qualifiés, jamais aux démarches à froid ; calcule les démarches nécessaires = prospects qualifiés ÷ taux de réponse (10 à 30 % selon le scénario). N'utilise pas un taux calculé sur 4 prospects comme une donnée fiable. Le rythme proposé doit égaler le total annoncé (par exemple 3 par jour × 5 jours × 4 semaines = 60 par mois) et la date de fin doit être cohérente. Compte toujours les 3 prospects ouverts (pas 2 sur une ligne et 3 sur une autre). N'écris jamais « statistiquement ».
 
 RÈGLE DE NOMBRE
 ${countRule}`;
 }
 
-export const RULES_VERSION = "r25";
+export const RULES_VERSION = "r26";
 
 /* ---------- Contrôle automatique léger ---------- */
 // Filet de sécurité uniquement. La qualité est assurée par la passe de relecture du pipeline.
@@ -113,7 +114,7 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     ignoreNegated: true,
   },
   {
-    pattern: /\b(?:\d{1,3} ?% des (?:ventes|clients|commercants|entreprises|pme|prospects|consommateurs|boutiques|personnes)|le saviez-vous)\b/i,
+    pattern: /\b(?:(?:[1-9]\d?) ?% des (?:ventes|clients|commercants|entreprises|pme|consommateurs|boutiques|personnes)|le saviez-vous|statistiquement)\b/i,
     warning: "Une statistique de marché sans source est avancée (« 80 % des… ») : retire-la ou remplace-la par une question que ton client peut vérifier lui-même.",
   },
   {
@@ -121,7 +122,7 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     warning: "Offre commerciale détectée : vérifie qu'elle existe réellement et que ses conditions sont exactes.",
   },
   {
-    pattern: /\b(?:que nous avions (?:evoque|discute)|nous avons (?:evoque|discute)|suite a (?:notre|nos) (?:echange|discussion|conversation|appel))\b/i,
+    pattern: /\b(?:avez-vous pu avancer|que nous avions (?:evoque|discute)|nous avons (?:evoque|discute)|suite a (?:notre|nos) (?:echange|discussion|conversation|appel))\b/i,
     warning: "Le message présuppose un échange passé : remplace-le par un rappel court qui cite le pack et son prix, ou vérifie que cet échange a bien eu lieu.",
   },
   {
@@ -129,7 +130,7 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     warning: "Une étiquette non autorisée (par exemple [Risque]) est utilisée : seules [Fiche], [Calcul], [Hypothèse], [Repère général], [Objectif] et [Analyse] sont valides.",
   },
   {
-    pattern: /\[(?!fiche\]|calcul\]|hypothese\]|repere general\]|objectif\]|analyse\]|nom du prospect\]|nom du client\]|risque\]|probleme\]|manque\]|verification\]|solution\]|texte\]|image\]|photo\]|video\]|produit\]|statut\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
+    pattern: /\[(?!(?:fiche|calcul|hypothese|repere general|objectif|analyse|source|sources)\b[^\]]*\]|constat\]|alerte\]|conseil\]|astuce\]|attention\]|recommandation\]|nom du prospect\]|nom du client\]|risque\]|probleme\]|manque\]|verification\]|solution\]|texte\]|image\]|photo\]|video\]|produit\]|statut\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
     warning: "Un emplacement à compléter ou une référence interne apparaît dans un message (par exemple [Nom du pack], [votre offre], [Règle 15]) : remplace-le par l'offre ou le prix réel de ta fiche avant d'envoyer.",
   },
   {
@@ -178,4 +179,4 @@ export function formatWarnings(warnings: string[]): string {
     "Il ne s'agit pas d'une vérification externe des faits :\n\n" +
     warnings.map((w) => `- ${w}`).join("\n")
   );
-}
+  }
