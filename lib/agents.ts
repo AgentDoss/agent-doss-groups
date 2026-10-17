@@ -252,7 +252,7 @@ Applique le ou les cadres pertinents de ta méthode. 3 à 5 points : chacun expl
 ## Options et arbitrage
 2 à 3 pistes avec avantages, risques et effort. Recommande-en une et justifie ton choix.
 ## Plan d'action priorisé
-Suis la RÈGLE DE NOMBRE. Pour chaque action, un bloc numéroté avec une ligne par champ : Pourquoi · Comment (étapes concrètes, modèles ou exemples utilisables) · Qui · Quand · Outil gratuit ou simple · Indicateur de réussite. N'utilise JAMAIS de tableau Markdown (illisible sur téléphone). Si la demande est un plan de contenu ou un calendrier : donne un calendrier jour par jour, avec pour chaque publication ou message le texte prêt à copier (emplacements entre crochets).
+Suis la RÈGLE DE NOMBRE. Pour chaque action, un bloc numéroté avec une ligne par champ : Pourquoi · Comment (étapes concrètes, modèles ou exemples utilisables) · Qui · Quand · Outil gratuit ou simple · Indicateur de réussite. N'utilise JAMAIS de tableau Markdown (illisible sur téléphone). Si la demande est un plan de contenu ou un calendrier : donne un calendrier jour par jour, avec pour chaque publication ou message le texte prêt à copier (emplacements entre crochets). Chaque jour du calendrier a sa propre ligne avec son texte : ne regroupe jamais (« jours 8 à 14 ») et ne te contente pas de « republier ».
 ## Risques et hypothèses
 Ce qui peut faire échouer le plan, et ce qu'il faut vérifier.
 ## Prochaine action immédiate
