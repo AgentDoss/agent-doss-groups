@@ -72,12 +72,14 @@ INTERDITS
 21. Étiquettes autorisées, et seulement celles-là : [Fiche], [Calcul], [Hypothèse], [Repère général], [Objectif], [Analyse] (ton interprétation à partir des données, jamais un fait de la fiche). N'écris jamais [Problème], [Risque] ou d'autres étiquettes inventées. [Fiche] ne s'applique qu'à un chiffre ou un fait écrit dans les données : jamais à « vous », à une ville citée en exemple, à un outil que la fiche ne mentionne pas, ni à un usage de marché. Ce que tu supposes des motivations d'un prospect ou d'un client (« ils sont saturés », « ils hésitent à cause du prix ») est une [Hypothèse], jamais un fait. Un même taux de conversion doit rester identique dans toute la réponse.
 22. Chiffres sans source : n'écris ni « statistiquement », ni pourcentage de perte ou de gain (« -20 % par jour », « gagner 1 h par jour ») sans le marquer [Hypothèse] ou en faire un objectif. Un pipeline existant ne se convertit jamais à 100 % : applique un taux [Hypothèse] (par exemple 20 %) et calcule combien de nouveaux contacts il faut en plus pour atteindre l'objectif.
 23. Messages à copier : les noms ne te sont pas communiqués, donc seuls [Nom du prospect], [Prénom] et [Quartier] sont permis comme emplacements. Tout le reste est écrit en toutes lettres à partir de la fiche : l'offre et son prix réel (par exemple le pack d'entrée), la solution proposée. N'écris jamais [votre offre], [votre solution], [votre commerce], [Sujet de l'échange précédent] ni [Règle 15] : ne cite jamais le numéro d'une règle. [Fiche] ne désigne que ce qui est écrit dans les données ci-dessous (pas un outil comme WhatsApp Business, pas un horaire, pas un usage local).
+24. Statistiques et faits inventés : n'écris jamais « 80 % des ventes… », « le saviez-vous », ni aucune statistique de marché sans source ; utilise une question ou un constat que le client peut vérifier lui-même. N'invente ni client en cours, ni « préparation d'un pack pour un nouveau client », ni photo de « coulisses » d'un travail qui n'existe pas. N'écris jamais « jour 7 = dimanche » ni « fin du mois » : numérote « Jour N ». N'offre ni réduction, ni cadeau, ni bonus.
+25. Cohérence des scénarios : une vente par mois × le nombre de mois doit atteindre l'objectif pour écrire « atteignable » ; sinon écris « non atteint en N mois » et dis combien de mois il faudrait. Un taux estimé est [Hypothèse], pas [Repère général], et le même taux est repris partout dans la réponse. N'écris jamais « que nous avions évoqué », « avez-vous pu avancer sur votre réflexion » ni « suite à notre échange » dans un message : écris un simple rappel court qui cite le pack et son prix.
 
 RÈGLE DE NOMBRE
 ${countRule}`;
 }
 
-export const RULES_VERSION = "r24";
+export const RULES_VERSION = "r25";
 
 /* ---------- Contrôle automatique léger ---------- */
 // Filet de sécurité uniquement. La qualité est assurée par la passe de relecture du pipeline.
@@ -111,11 +113,23 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     ignoreNegated: true,
   },
   {
-    pattern: /\[(?:risque|probleme|conseil|astuce|attention|recommandation|point de vigilance)\]/i,
+    pattern: /\b(?:\d{1,3} ?% des (?:ventes|clients|commercants|entreprises|pme|prospects|consommateurs|boutiques|personnes)|le saviez-vous)\b/i,
+    warning: "Une statistique de marché sans source est avancée (« 80 % des… ») : retire-la ou remplace-la par une question que ton client peut vérifier lui-même.",
+  },
+  {
+    pattern: /\b(?:(?:je |nous |on )?(?:vous )?(?:offre|offrons|offrirai|offrirons|accorde|accordons|accorderai)\w* (?:\w+ ){0,3}(?:reduction|remise|rabais|cadeau|bonus)|reduction sur votre)/i,
+    warning: "Offre commerciale détectée : vérifie qu'elle existe réellement et que ses conditions sont exactes.",
+  },
+  {
+    pattern: /\b(?:que nous avions (?:evoque|discute)|nous avons (?:evoque|discute)|suite a (?:notre|nos) (?:echange|discussion|conversation|appel))\b/i,
+    warning: "Le message présuppose un échange passé : remplace-le par un rappel court qui cite le pack et son prix, ou vérifie que cet échange a bien eu lieu.",
+  },
+  {
+    pattern: /\[(?:risque|probleme|manque|verification|solution|conseil|astuce|attention|recommandation|point de vigilance|constat|alerte)\]/i,
     warning: "Une étiquette non autorisée (par exemple [Risque]) est utilisée : seules [Fiche], [Calcul], [Hypothèse], [Repère général], [Objectif] et [Analyse] sont valides.",
   },
   {
-    pattern: /\[(?!fiche\]|calcul\]|hypothese\]|repere general\]|objectif\]|analyse\]|nom du prospect\]|nom du client\]|risque\]|probleme\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
+    pattern: /\[(?!fiche\]|calcul\]|hypothese\]|repere general\]|objectif\]|analyse\]|nom du prospect\]|nom du client\]|risque\]|probleme\]|manque\]|verification\]|solution\]|texte\]|image\]|photo\]|video\]|produit\]|statut\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
     warning: "Un emplacement à compléter ou une référence interne apparaît dans un message (par exemple [Nom du pack], [votre offre], [Règle 15]) : remplace-le par l'offre ou le prix réel de ta fiche avant d'envoyer.",
   },
   {
