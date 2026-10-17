@@ -230,6 +230,7 @@ export const FRAMEWORKS: Record<AgentId, string> = {
   strategy: "SWOT, 5 forces de Porter, matrice d'Ansoff, Business Model Canvas, scénarios, cartographie des risques (probabilité × impact).",
 };
 
+export const AGENTS_VERSION = "a23";
 export type Depth = "quick" | "standard" | "expert";
 // quick = réponse courte ; deep = réponse experte complète ; contribution = note ciblée destinée au Directeur
 export type PromptMode = "quick" | "deep" | "contribution";

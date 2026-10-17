@@ -54,6 +54,7 @@ function sys(i: PipelineInput, agent: DossAgent, mode: PromptMode, extra = ""): 
   return `${buildAgentSystemPrompt(agent, mode)}\n${extra}\n${grounding(i)}`;
 }
 
+export const PIPELINE_VERSION = "p2";
 const remaining = (i: PipelineInput) => i.deadlineAt - Date.now();
 const within = (ms: number) => AbortSignal.timeout(Math.max(3_000, ms));
 
@@ -339,4 +340,4 @@ export async function runMissionPipeline(i: PipelineInput): Promise<PipelineResu
   }
 
   return runExpert(i);
-            }
+}

@@ -77,6 +77,8 @@ RÈGLE DE NOMBRE
 ${countRule}`;
 }
 
+export const RULES_VERSION = "r23";
+
 /* ---------- Contrôle automatique léger ---------- */
 // Filet de sécurité uniquement. La qualité est assurée par la passe de relecture du pipeline.
 
@@ -109,8 +111,8 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     ignoreNegated: true,
   },
   {
-    pattern: /\[(?:regle \d+|votre (?:offre|solution|commerce|produit|service|prix)|sujet de l'echange[^\]]*|astuce[^\]]*)\]/i,
-    warning: "Un emplacement à compléter ou une référence interne apparaît dans un message : remplace-le par l'offre ou le prix réel de ta fiche avant d'envoyer.",
+    pattern: /\[(?!fiche\]|calcul\]|hypothese\]|repere general\]|objectif\]|analyse\]|nom du prospect\]|nom du client\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
+    warning: "Un emplacement à compléter ou une référence interne apparaît dans un message (par exemple [Nom du pack], [votre offre], [Règle 15]) : remplace-le par l'offre ou le prix réel de ta fiche avant d'envoyer.",
   },
   {
     pattern: /\b(integration native|integre automatiquement|connecte automatiquement|connexion automatique)\b/i,
