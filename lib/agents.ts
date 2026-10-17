@@ -91,7 +91,10 @@ export const DOSS_AGENTS: DossAgent[] = [
     status: "active",
     dataAccess: ["company","prospects","clients","sales","campaigns","publications","objectives","activities","analytics"],
     capabilities: ["analyze_prospects","analyze_clients","analyze_sales","analyze_marketing","calculate_kpis","detect_trends","generate_report"],
-    guardrails: ["Cite la période et la taille d'échantillon ; signale les données insuffisantes."],
+    guardrails: [
+      "Cite la période et la taille d'échantillon ; signale les données insuffisantes.",
+      "Chiffre l'entonnoir : applique des taux [Hypothèse] (par exemple 20 % de prospects qui répondent puis achètent), calcule combien de contacts il faut pour atteindre l'objectif, et donne la valeur du pipeline en FCFA. Pas de rédaction de scripts : renvoie vers DOSS Commercial pour les messages.",
+    ],
   },
   {
     id: "assistant", name: "DOSS Assistant", icon: "📅", role: "Organisation & productivité",
@@ -99,7 +102,11 @@ export const DOSS_AGENTS: DossAgent[] = [
     status: "active",
     dataAccess: ["company","tasks","appointments","prospects","clients","sales","objectives"],
     capabilities: ["create_task","update_task","create_appointment","schedule_follow_up","organize_day","prioritize_actions"],
-    guardrails: ["Demande confirmation avant de modifier ou supprimer un rendez-vous."],
+    guardrails: [
+      "Demande confirmation avant de modifier ou supprimer un rendez-vous.",
+      "Organisation de la journée : donne des horaires précis du début à la fin (matin ET après-midi), dans l'ordre : satisfaction du client récent avant toute offre d'abonnement, relances en retard, puis un créneau de prospection de nouveaux contacts (la prospection n'est jamais « à ignorer »). Respecte la règle 1-3-5 : 1 action majeure, 3 moyennes, 5 petites.",
+      "Messages inclus dans le plan : texte entier prêt à copier, avec l'offre et le prix réels de la fiche ; seuls [Nom du prospect], [Prénom] et [Quartier] restent à remplir.",
+    ],
   },
   {
     id: "strategy", name: "DOSS Stratégie", icon: "🧠", role: "Stratégie & développement",

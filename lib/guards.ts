@@ -71,6 +71,7 @@ INTERDITS
 20. Étiquettes exactes : une absence de donnée (« 0 FCFA de charges enregistrées ») n'est pas [Fiche] : écris « non renseigné ». Un taux ou un coût que tu estimes (frais Mobile Money, coût de l'IA) est [Hypothèse], jamais [Calcul]. Ne nomme aucun fournisseur d'IA ou d'outil que la fiche ne mentionne pas : écris « coût de l'IA » ou « abonnements ». Ne commence jamais la synthèse par « impossible ».
 21. Étiquettes autorisées, et seulement celles-là : [Fiche], [Calcul], [Hypothèse], [Repère général], [Objectif], [Analyse] (ton interprétation à partir des données, jamais un fait de la fiche). N'écris jamais [Problème], [Risque] ou d'autres étiquettes inventées. [Fiche] ne s'applique qu'à un chiffre ou un fait écrit dans les données : jamais à « vous », à une ville citée en exemple, à un outil que la fiche ne mentionne pas, ni à un usage de marché. Ce que tu supposes des motivations d'un prospect ou d'un client (« ils sont saturés », « ils hésitent à cause du prix ») est une [Hypothèse], jamais un fait. Un même taux de conversion doit rester identique dans toute la réponse.
 22. Chiffres sans source : n'écris ni « statistiquement », ni pourcentage de perte ou de gain (« -20 % par jour », « gagner 1 h par jour ») sans le marquer [Hypothèse] ou en faire un objectif. Un pipeline existant ne se convertit jamais à 100 % : applique un taux [Hypothèse] (par exemple 20 %) et calcule combien de nouveaux contacts il faut en plus pour atteindre l'objectif.
+23. Messages à copier : les noms ne te sont pas communiqués, donc seuls [Nom du prospect], [Prénom] et [Quartier] sont permis comme emplacements. Tout le reste est écrit en toutes lettres à partir de la fiche : l'offre et son prix réel (par exemple le pack d'entrée), la solution proposée. N'écris jamais [votre offre], [votre solution], [votre commerce], [Sujet de l'échange précédent] ni [Règle 15] : ne cite jamais le numéro d'une règle. [Fiche] ne désigne que ce qui est écrit dans les données ci-dessous (pas un outil comme WhatsApp Business, pas un horaire, pas un usage local).
 
 RÈGLE DE NOMBRE
 ${countRule}`;
@@ -106,6 +107,10 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     pattern: /\b(gagn\w*|economis\w*)\s+(?:desormais |environ |jusqu'a )?\d+(?:[.,]\d+)?\s?(?:h\b|heures?|minutes?|%)/i,
     warning: "Un gain chiffré (« gagner 1 h par jour »…) est promis : vérifie qu'il est démontré, sinon présente-le comme un objectif ou retire-le.",
     ignoreNegated: true,
+  },
+  {
+    pattern: /\[(?:regle \d+|votre (?:offre|solution|commerce|produit|service|prix)|sujet de l'echange[^\]]*|astuce[^\]]*)\]/i,
+    warning: "Un emplacement à compléter ou une référence interne apparaît dans un message : remplace-le par l'offre ou le prix réel de ta fiche avant d'envoyer.",
   },
   {
     pattern: /\b(integration native|integre automatiquement|connecte automatiquement|connexion automatique)\b/i,
