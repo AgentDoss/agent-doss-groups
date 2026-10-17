@@ -8,6 +8,9 @@ import {
   getRequestedActionCount,
 } from "@/lib/guards";
 import { runMissionPipeline } from "@/lib/pipeline";
+import * as GuardsModule from "@/lib/guards";
+import * as AgentsModule from "@/lib/agents";
+import * as PipelineModule from "@/lib/pipeline";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -514,6 +517,12 @@ N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
             send({ type: "delta", text: note });
             answer += note;
           }
+          // Repère de version (affichage seulement) : montre quels fichiers sont réellement en ligne.
+          const ver = (m: unknown, k: string) => String((m as Record<string, unknown>)[k] ?? "ancienne");
+          send({
+            type: "delta",
+            text: `\n\n_Versions en ligne : règles ${ver(GuardsModule, "RULES_VERSION")} · agents ${ver(AgentsModule, "AGENTS_VERSION")} · pipeline ${ver(PipelineModule, "PIPELINE_VERSION")}_`,
+          });
           const warnings = collectWarnings(answer);
           if (warnings.length) {
             const block = formatWarnings(warnings);
