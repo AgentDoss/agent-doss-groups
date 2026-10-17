@@ -235,21 +235,27 @@ export async function POST(req: Request) {
   let clientStats: { count: number; dormant: number; total: number | null; lines: string[] } | null = null;
 
   if (company?.id) {
-    const { data: clientRows, count: clientTotal, error: clientsError } = await sb
-      .from("doss_clients")
-      .select("status,total_amount,last_purchase_date,next_follow_up,created_at,source", { count: "exact" })
-      .eq("user_id", u.user.id)
-      .eq("company_id", String(company.id))
-      .limit(1000);
+    const readClients = (cols: string) =>
+      sb
+        .from("doss_clients")
+        .select(cols, { count: "exact" })
+        .eq("user_id", u.user.id)
+        .eq("company_id", String(company.id))
+        .limit(1000);
+    const BASE_COLS = "status,total_amount,last_purchase_date,next_follow_up,created_at,source";
+    let { data: clientRows, count: clientTotal, error: clientsError } = await readClients(BASE_COLS + ",product");
+    // Colonne « product » absente (migration 003 pas encore exécutée) : on relit sans elle.
+    if (clientsError) ({ data: clientRows, count: clientTotal, error: clientsError } = await readClients(BASE_COLS));
 
     if (!clientsError && clientRows && typeof clientTotal === "number") {
-      const rows = clientRows as Array<{
+      const rows = clientRows as unknown as Array<{
         status: string | null;
         total_amount: number | null;
         last_purchase_date: string | null;
         next_follow_up: string | null;
         created_at: string | null;
         source: string | null;
+        product?: string | null;
       }>;
       clientStats = {
         count: clientTotal,
@@ -274,6 +280,7 @@ export async function POST(req: Request) {
             `- Client ${i + 1} (anonymisé) : statut ${r.status ?? "non renseigné"} ; ` +
             `origine ${r.source ?? "non renseignée"} ; ajouté au CRM il y a ${sinceAdded ?? "?"} jour(s) ; ` +
             `dernier achat : ${sincePurchase === null ? "aucun enregistré" : `il y a ${sincePurchase} jour(s)`} ; ` +
+            `offre achetée : ${r.product ? String(r.product).replace(/\s+/g, " ").slice(0, 120) : "non renseignée"} ; ` +
             `montant des achats : ${amount > 0 ? `${Math.round(amount)} FCFA` : "non renseigné"} ; ` +
             `relance : ${followUp}`
           );
