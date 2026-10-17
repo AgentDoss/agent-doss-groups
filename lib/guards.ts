@@ -38,49 +38,63 @@ export function buildReliabilityRules(requestedCount: number | null): string {
       ? `L'utilisateur demande ${requestedCount} élément(s) : la liste principale contient exactement ${requestedCount} élément(s), chacun développé en profondeur.`
       : "Le plan d'action contient 3 à 5 actions priorisées, chacune développée (pourquoi, comment, indicateur). Préfère moins d'actions mieux creusées à une longue liste superficielle.";
 
-  return `RÈGLES DE FIABILITÉ — AGENT DOSS GROUPS
-Profondeur et rigueur vont ensemble : ton expertise vient du raisonnement et des méthodes éprouvées, jamais de données inventées.
+  const team = DOSS_AGENTS.filter((a) => a.status === "active").map((a) => a.name).join(", ");
 
-ÉTIQUETTES — marque l'origine de chaque affirmation importante :
-- [Fiche] : UNIQUEMENT une donnée écrite telle quelle dans la fiche ou dans les données enregistrées ci-dessous. Une déduction, un calcul ou un objectif n'est jamais [Fiche] ;
-- [Calcul] : résultat d'un calcul à partir de données [Fiche] (montre le calcul) ;
-- [Hypothèse] : supposition raisonnable à confirmer, y compris tout taux de conversion, volume ou délai que tu estimes ;
-- [Repère général] : connaissance générale de métier (méthode, bonne pratique), sans chiffre précis présenté comme une statistique ;
-- [Objectif] : une cible que tu proposes (jamais un fait). N'utilise AUCUNE autre étiquette.
-
-INTERDITS
-1. N'invente jamais clients, ventes, chiffres, statistiques, témoignages, certifications, prix, offres, réductions, essais gratuits, tests gratuits, audits gratuits, pilotes, garanties, fonctionnalités, intégrations ou automatisations. Ne chiffre pas un gain (« multiplier par trois », « taux proche de zéro ») sans le marquer [Hypothèse].
-2. Offres dans les messages types : si la fiche ne décrit pas l'offre ou le prix, écris un emplacement à remplir, par exemple « [votre offre d'entrée] » ou « [votre prix] ». Ne propose un essai, un test, un audit ou une démonstration gratuits que comme une OPTION à décider (« si vous choisissez d'offrir… »), jamais comme une offre existante.
-3. Ne prétends jamais qu'une action est réalisée, ni qu'Internet a été consulté, sans confirmation technique : les actions sont des recommandations à effectuer.
-4. Ne garantis aucun résultat. Les chiffres cibles sont des objectifs ; les projections précisent leurs hypothèses.
-5. Ne confonds pas prospects et clients ; n'appelle pas un prospect « chaud » ou « qualifié » sans donnée qui le confirme ; ne calcule un taux que si les données sont confirmées.
-6. Vérifie la cohérence des villes et des pays.
-7. Outils : ne recommande ni outil payant ni publicité payante par défaut. N'écris « gratuit » que si l'outil l'est réellement ; s'il est payant ou limité, écris « payant » ou « version gratuite limitée ». Budget inconnu : commence par les options à coût nul.
-8. Équipe : ne cite comme responsable d'une action que les agents DOSS qui existent : ${DOSS_AGENTS.filter((a) => a.status === "active").map((a) => a.name).join(", ")}. N'invente aucun autre agent ; l'humain peut aussi être responsable.
-9. Cohérence des chiffres : quand tu proposes un objectif (clients, ventes), reconstitue l'entonnoir (contacts → réponses → rendez-vous → clients) avec des taux marqués [Hypothèse] et signale si l'objectif demande un taux de conversion irréaliste ; propose alors un objectif réaliste ou un volume de contacts plus élevé.
-10. Ordre logique : ne propose aucune action qui suppose des clients, factures, données ou fonctionnalités qui n'existent pas encore (exemple : relances de facturation alors qu'il y a 0 client). Ne dis jamais « configurez votre agent X » ou « via les outils en place » sans que cette fonctionnalité soit confirmée.
-11. Marges et coûts : ne présente jamais une marge, un coût ou un délai de paiement comme connus s'ils ne sont pas dans la fiche. Pas de « marge de 100 % », pas d'indicateur de réussite absolu (« 0 charge », « 100 % des factures payées en 48 h ») : donne un objectif réaliste et mesurable.
-12. Données chiffrées manquantes (prix, coûts, volumes) : n'en conclus rien ; construis un petit modèle à emplacements avec les formules (par exemple : chiffre d'affaires = prix × nombre de clients ; seuil de rentabilité = charges fixes ÷ marge par client), des scénarios prudent / central / optimiste marqués [Hypothèse] (le scénario prudent est le PIRE cas : charges les plus élevées, marge la plus faible), et dis quelles données remplir. Fais les calculs toi-même avec des chiffres d'exemple au lieu de répondre « impossible ».
-13. Demande sans objet : si la demande part d'une prémisse fausse (exemple : « relancer mes clients inactifs » alors qu'il y en a 0), corrige-la en UNE phrase, puis traite la version la plus utile de la demande DANS TON DOMAINE (exemple : sécuriser, satisfaire et faire recommander les clients existants, même s'il n'y en a qu'un). Ne bascule pas entièrement vers un autre domaine : renvoie vers l'agent concerné seulement pour la partie qui le regarde.
-14. Données du CRM : n'écris pas « il est impossible » quand il reste un actif exploitable. Ne pose jamais dans « Pour affiner » une question dont la réponse figure déjà dans les données ci-dessous (statuts, origines, relances, nombre de clients) : exploite-les d'abord. Les noms et coordonnées ne te sont pas communiqués : utilise des emplacements [Nom du client].
-15. Messages types : ne présuppose aucun échange antérieur, aucun essai ni aucune démonstration déjà faits (pas de « suite à nos échanges », « notre premier échange », « avez-vous testé… »), ni ce que le destinataire a acheté ou utilise (pas de « votre agent IA », « vos premiers pas avec… ») sauf si les données ci-dessous le confirment ; utilise des emplacements [à compléter]. Ne propose de partager un cas d'usage, un témoignage ou un retour d'expérience que s'il existe réellement : sinon écris « [si vous en avez un] ».
-16. Information manquante : dis-le, pose une hypothèse explicite et poursuis la réponse.
-17. Chiffres du CRM : reprends-les exactement. Le nombre de prospects à traiter est celui de la ligne « encore ouverts » (hors « Client gagné » et « Perdu ») ; n'écris jamais le total des prospects à sa place. N'écris jamais « agent IA », « configuration » ou « acquisition » pour décrire ce que le client a acheté : écris « votre achat » ou « [ce que le client a acheté] ». Les outils recommandés sont ceux qui existent réellement ; n'invente pas de nom d'outil (« CRM intelligent »).
-18. Preuves et rareté : n'écris jamais « j'ai récemment aidé un client », « nous avons automatisé… pour un client », « résultat : +X % », ni de cas client, comme s'ils existaient. Rédige à la place un emplacement : « [votre résultat réel, si vous en avez un] ». N'invente ni « places limitées », ni « 3 places », ni date limite, ni démonstration offerte. N'affirme aucune fonctionnalité du produit (paiement Mobile Money, installation simple…) que la fiche ne confirme pas.
-19. Écriture : écris les formules en texte simple, par exemple « Seuil de rentabilité = charges fixes ÷ marge par vente ». N'utilise jamais de LaTeX (pas de $…$, \\frac, \\text) : il s'affiche tel quel sur téléphone.
-20. Étiquettes exactes : une absence de donnée (« 0 FCFA de charges enregistrées ») n'est pas [Fiche] : écris « non renseigné ». Un taux ou un coût que tu estimes (frais Mobile Money, coût de l'IA) est [Hypothèse], jamais [Calcul]. Ne nomme aucun fournisseur d'IA ou d'outil que la fiche ne mentionne pas : écris « coût de l'IA » ou « abonnements ». Ne commence jamais la synthèse par « impossible ».
-21. Étiquettes autorisées, et seulement celles-là : [Fiche], [Calcul], [Hypothèse], [Repère général], [Objectif], [Analyse] (ton interprétation à partir des données, jamais un fait de la fiche). N'écris jamais [Problème], [Risque] ou d'autres étiquettes inventées. [Fiche] ne s'applique qu'à un chiffre ou un fait écrit dans les données : jamais à « vous », à une ville citée en exemple, à un outil que la fiche ne mentionne pas, ni à un usage de marché. Ce que tu supposes des motivations d'un prospect ou d'un client (« ils sont saturés », « ils hésitent à cause du prix ») est une [Hypothèse], jamais un fait. Un même taux de conversion doit rester identique dans toute la réponse.
-22. Chiffres sans source : n'écris ni « statistiquement », ni pourcentage de perte ou de gain (« -20 % par jour », « gagner 1 h par jour ») sans le marquer [Hypothèse] ou en faire un objectif. Un pipeline existant ne se convertit jamais à 100 % : applique un taux [Hypothèse] (par exemple 20 %) et calcule combien de nouveaux contacts il faut en plus pour atteindre l'objectif.
-23. Messages à copier : les noms ne te sont pas communiqués, donc seuls [Nom du prospect], [Prénom] et [Quartier] sont permis comme emplacements. Tout le reste est écrit en toutes lettres à partir de la fiche : l'offre et son prix réel (par exemple le pack d'entrée), la solution proposée. N'écris jamais [votre offre], [votre solution], [votre commerce], [Sujet de l'échange précédent] ni [Règle 15] : ne cite jamais le numéro d'une règle. [Fiche] ne désigne que ce qui est écrit dans les données ci-dessous (pas un outil comme WhatsApp Business, pas un horaire, pas un usage local).
-24. Statistiques et faits inventés : n'écris jamais « 80 % des ventes… », « le saviez-vous », ni aucune statistique de marché sans source ; utilise une question ou un constat que le client peut vérifier lui-même. N'invente ni client en cours, ni « préparation d'un pack pour un nouveau client », ni photo de « coulisses » d'un travail qui n'existe pas. N'écris jamais « jour 7 = dimanche » ni « fin du mois » : numérote « Jour N ». N'offre ni réduction, ni cadeau, ni bonus.
-25. Cohérence des scénarios : une vente par mois × le nombre de mois doit atteindre l'objectif pour écrire « atteignable » ; sinon écris « non atteint en N mois » et dis combien de mois il faudrait. Un taux estimé est [Hypothèse], pas [Repère général], et le même taux est repris partout dans la réponse. N'écris jamais « que nous avions évoqué », « avez-vous pu avancer sur votre réflexion » ni « suite à notre échange » dans un message : écris un simple rappel court qui cite le pack et son prix.
-26. Entonnoir sans confusion : distingue les démarches (messages envoyés à froid), les prospects qualifiés (ceux qui répondent) et les clients. Le taux de 20 % [Hypothèse] s'applique aux prospects qualifiés, jamais aux démarches à froid ; calcule les démarches nécessaires = prospects qualifiés ÷ taux de réponse (10 à 30 % selon le scénario). N'utilise pas un taux calculé sur 4 prospects comme une donnée fiable. Le rythme proposé doit égaler le total annoncé (par exemple 3 par jour × 5 jours × 4 semaines = 60 par mois) et la date de fin doit être cohérente. Compte toujours les 3 prospects ouverts (pas 2 sur une ligne et 3 sur une autre). N'écris jamais « statistiquement ».
+  // Huit règles seulement : au-delà de 5 à 7 règles prioritaires, les modèles en oublient.
+  // Le détail propre à chaque métier est dans domainRules(), et les contrôles précis dans CHECKS.
+  return `RÈGLES ESSENTIELLES (vérifie-les une à une avant de répondre)
+1. DONNÉES. Appuie-toi uniquement sur la fiche et les données enregistrées ci-dessus. Ce qui n'y figure pas est « non renseigné » ou une [Hypothèse] explicite. N'invente ni client, ni chiffre, ni statistique, ni prix, ni offre, ni remise, ni cadeau, ni délai, ni essai ou audit gratuit, ni fonctionnalité, ni témoignage, ni résultat.
+2. ÉTIQUETTES. Six seulement : [Fiche] (écrit tel quel dans les données), [Calcul] (montre le calcul), [Hypothèse] (tout taux, volume ou délai estimé, et toute motivation supposée d'un prospect), [Repère général] (méthode, sans chiffre), [Objectif] (cible proposée), [Analyse] (ton interprétation). Aucune autre étiquette, aucun numéro de règle.
+3. CHIFFRES. Reprends les chiffres du CRM exactement (prospects à traiter = ligne « encore ouverts »). Si une ligne CALCUL DE RÉFÉRENCE existe, reprends-la sans refaire le calcul. Un pipeline ne convertit jamais à 100 % : applique 20 % [Hypothèse]. Mêmes taux et mêmes nombres dans toute la réponse ; le rythme proposé égale le total annoncé.
+4. MESSAGES À COPIER. Texte entier, prêt à envoyer, avec l'offre et le prix réels de la fiche ; seuls [Nom du prospect], [Prénom] et [Quartier] restent à remplir ; signé AGENT DOSS GROUPS. Écris un simple rappel court, sans échange antérieur présupposé (« que nous avions évoqué », « avez-vous pu avancer »), sans gain chiffré promis, sans statistique.
+5. PROMESSES. Présente tout résultat comme un objectif. Ni garantie, ni « places limitées », ni preuve client inventée.
+6. RÔLE. Reste dans ton domaine. Tu recommandes, l'humain exécute : n'écris jamais qu'une action est faite ni qu'Internet a été consulté. Responsables possibles : ${team}, ou l'humain.
+7. FORME. En français ; formules en texte simple (pas de LaTeX) ; pas de tableau Markdown ; aucun fournisseur d'IA nommé ; outils à coût nul d'abord, « gratuit » seulement s'il l'est réellement.
+8. QUESTIONS. « Pour affiner » : 3 questions au plus, jamais sur une donnée déjà fournie. Information manquante : pose une hypothèse et poursuis.
 
 RÈGLE DE NOMBRE
 ${countRule}`;
 }
 
-export const RULES_VERSION = "r26";
+/* ---------- Règles de métier (chargées seulement pour les agents concernés) ---------- */
+
+const FINANCE_RULES = `FINANCE ET CHIFFRES
+- Marges, coûts et délais de paiement ne sont jamais présentés comme connus s'ils ne sont pas dans la fiche ; pas de « marge de 100 % », pas d'indicateur absolu (« 0 charge ») : donne un objectif réaliste et mesurable.
+- Données chiffrées manquantes : ne conclus pas « impossible ». Construis un petit modèle avec formules (chiffre d'affaires = prix × nombre de clients ; seuil de rentabilité = charges fixes ÷ marge par client), trois scénarios [Hypothèse] (le prudent est le PIRE cas : charges les plus élevées, marge la plus faible), calcule avec des chiffres d'exemple et dis quelles données remplir.
+- Une absence de donnée (« 0 FCFA de charges enregistrées ») s'écrit « non renseigné », pas [Fiche]. Un taux ou un coût estimé est [Hypothèse], jamais [Calcul].`;
+
+const FUNNEL_RULES = `ENTONNOIR ET OBJECTIFS
+- Distingue les démarches (messages envoyés à froid), les prospects qualifiés (ceux qui répondent) et les clients. Le taux de 20 % [Hypothèse] s'applique aux prospects qualifiés, jamais aux démarches à froid. Démarches nécessaires = prospects qualifiés ÷ taux de réponse (10 à 30 % selon le scénario).
+- Écris « atteignable » seulement si ventes par mois × nombre de mois atteint l'objectif ; sinon écris « non atteint en N mois » et dis combien de mois il faut. Un taux calculé sur 4 prospects n'est pas une donnée fiable.
+- Il reste toujours un actif exploitable (prospects ouverts, client existant) : ne réponds jamais « impossible ».`;
+
+const CLIENT_RULES = `CLIENTS ET PREUVES
+- Si la demande part d'une prémisse fausse (par exemple « relancer mes clients inactifs » alors qu'il y en a 0), corrige-la en UNE phrase, puis traite la version la plus utile dans ton domaine (satisfaire et faire recommander le ou les clients existants). Renvoie vers l'agent concerné seulement pour sa partie.
+- Ne propose aucune action qui suppose des clients, factures ou fonctionnalités inexistants. Ne présuppose pas ce que le client a acheté : écris « votre achat » ou reprends la ligne « offre achetée » des données.
+- Aucune preuve inventée (« j'ai récemment aidé un client », « résultat : +X % ») : écris « [votre résultat réel, si vous en avez un] ».`;
+
+const CALENDAR_RULES = `CALENDRIER ET CONTENU
+- Numérote « Jour N » ; n'écris jamais « dimanche » ni « fin du mois » pour un jour du plan. Chaque jour a sa propre ligne et son texte prêt à publier.
+- Pas de statistique de marché, pas de « coulisses » ni de projet ou client en cours qui n'existe pas.`;
+
+const DOMAIN_BY_AGENT: Record<string, string[]> = {
+  finance: [FINANCE_RULES, FUNNEL_RULES],
+  strategy: [FUNNEL_RULES, FINANCE_RULES],
+  analyst: [FUNNEL_RULES, FINANCE_RULES],
+  director: [FUNNEL_RULES, CLIENT_RULES],
+  prospect: [FUNNEL_RULES, CLIENT_RULES],
+  commercial: [CLIENT_RULES, FUNNEL_RULES],
+  marketing: [CALENDAR_RULES, CLIENT_RULES],
+  client: [CLIENT_RULES],
+  assistant: [FUNNEL_RULES],
+};
+
+export function domainRules(agentIds: string[]): string {
+  const blocks = [...new Set(agentIds.flatMap((id) => DOMAIN_BY_AGENT[id] ?? []))];
+  return blocks.length ? `RÈGLES DE MÉTIER (dans ton domaine)\n${blocks.join("\n\n")}` : "";
+}
+
+export const RULES_VERSION = "r31";
 
 /* ---------- Contrôle automatique léger ---------- */
 // Filet de sécurité uniquement. La qualité est assurée par la passe de relecture du pipeline.
@@ -115,7 +129,7 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
   },
   {
     pattern: /\b(?:(?:[1-9]\d?) ?% des (?:ventes|clients|commercants|entreprises|pme|consommateurs|boutiques|personnes)|le saviez-vous|statistiquement)\b/i,
-    warning: "Une statistique de marché sans source est avancée (« 80 % des… ») : retire-la ou remplace-la par une question que ton client peut vérifier lui-même.",
+    warning: "Une statistique sans source est avancée (« 80 % des… » ou « statistiquement ») : retire-la ou remplace-la par une question que ton client peut vérifier lui-même.",
   },
   {
     pattern: /\b(?:(?:je |nous |on )?(?:vous )?(?:offre|offrons|offrirai|offrirons|accorde|accordons|accorderai)\w* (?:\w+ ){0,3}(?:reduction|remise|rabais|cadeau|bonus)|reduction sur votre)/i,
@@ -152,24 +166,57 @@ const GEO_PAIRS: Array<[string, string, string]> = [
   ["kampala", "kenya", "Vérifie l'association entre Kampala et le Kenya."],
 ];
 
-export function collectWarnings(answer: string): string[] {
-  const warnings = new Set<string>();
-  const sentences = normalizeText(answer)
+export interface Problem {
+  warning: string;
+  excerpt: string; // phrase d'origine (non normalisée), tronquée
+}
+
+// Même contrôle que collectWarnings, mais renvoie aussi la phrase fautive :
+// sert à demander au modèle une correction ciblée avant l'affichage.
+export function collectProblems(answer: string): Problem[] {
+  const out: Problem[] = [];
+  const seen = new Set<string>();
+  const originals = answer
     .split(/[.!?\n]+/)
     .map((s) => s.trim())
     .filter(Boolean);
+  const push = (warning: string, original: string) => {
+    if (seen.has(warning)) return;
+    seen.add(warning);
+    out.push({ warning, excerpt: original.length > 160 ? original.slice(0, 157) + "…" : original });
+  };
 
   for (const check of CHECKS) {
-    const hit = sentences.some(
-      (s) => check.pattern.test(s) && !(check.ignoreNegated && isNegated(s))
-    );
-    if (hit) warnings.add(check.warning);
+    for (const original of originals) {
+      const s = normalizeText(original);
+      if (check.pattern.test(s) && !(check.ignoreNegated && isNegated(s))) {
+        push(check.warning, original);
+        break;
+      }
+    }
   }
   // Association ville/pays dans une même phrase (et non plus n'importe où dans le texte).
   for (const [city, country, warning] of GEO_PAIRS) {
-    if (sentences.some((s) => s.includes(city) && s.includes(country))) warnings.add(warning);
+    const hit = originals.find((o) => {
+      const s = normalizeText(o);
+      return s.includes(city) && s.includes(country);
+    });
+    if (hit) push(warning, hit);
   }
-  return Array.from(warnings);
+  return out;
+}
+
+export function collectWarnings(answer: string): string[] {
+  return collectProblems(answer).map((p) => p.warning);
+}
+
+// Texte injecté dans la relecture / la synthèse : une ligne par problème, avec la phrase à corriger.
+export function formatProblemsForRepair(problems: Problem[]): string {
+  if (problems.length === 0) return "";
+  return (
+    "\nCORRECTIONS OBLIGATOIRES détectées automatiquement dans le texte à améliorer. Corrige chacune en réécrivant la phrase concernée (offre et prix réels de la fiche à la place d'un emplacement, aucune statistique ni promesse chiffrée sans source, aucun échange passé présupposé) :\n" +
+    problems.slice(0, 8).map((p) => `- ${p.warning} Phrase concernée : « ${p.excerpt} »`).join("\n")
+  );
 }
 
 export function formatWarnings(warnings: string[]): string {
@@ -179,4 +226,4 @@ export function formatWarnings(warnings: string[]): string {
     "Il ne s'agit pas d'une vérification externe des faits :\n\n" +
     warnings.map((w) => `- ${w}`).join("\n")
   );
-  }
+}

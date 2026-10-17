@@ -134,12 +134,12 @@ type Rule = Array<string | [string, number]>;
 const ROUTING_RULES: Record<Exclude<AgentId, "director">, Rule> = {
   marketing: ["publication","publier","marketing","communication","campagne","facebook","instagram","whatsapp","contenu","visibilite","post","reseaux sociaux","calendrier editorial"],
   prospect: ["prospect","prospecter","prospection",["nouveaux clients",2],["nouveaux prospects",2],["trouver des clients",2],["chercher des prospects",2],"lead","leads","ciblage","annuaire"],
-  commercial: ["vente","vendre","commercial","relance","relancer","qualifier","qualification","pipeline","devis","negociation","closing",["opportunite commerciale",2]],
+  commercial: ["vente","vendre","commercial",["relance",2],["relancer",2],"qualifier","qualification","pipeline","devis","negociation","closing",["opportunite commerciale",2]],
   client: ["client","fidelisation","satisfaction","reactivation",["relation client",2],["service client",2],["clients inactifs",2]],
-  finance: ["finance","finances",["chiffre d'affaires",2],"revenu","depense","marge","budget","rentabilite","benefice","tresorerie"],
-  analyst: ["analyse","analyser","statistique","kpi","rapport","donnees","indicateur","tendance",["tableau de bord",2]],
+  finance: ["finance","finances",["chiffre d'affaires",2],"revenu","depense","marge","budget","rentabilite","benefice","tresorerie",["charges",2],["seuil de rentabilite",2],"couvrir","prix","tarif"],
+  analyst: [["analyse",2],["analyser",2],"statistique","kpi","rapport","donnees","indicateur","tendance",["tableau de bord",2]],
   assistant: ["tache","rendez-vous","agenda","calendrier","planning","organiser","organisation","rappel","echeance",["ma journee",2]],
-  strategy: ["strategie",["plan strategique",2],"developpement","opportunite","orientation","priorite","croissance",["developper l'entreprise",2]],
+  strategy: [["strategie",3],["plan strategique",2],"developpement","opportunite","orientation","priorite","croissance",["developper l'entreprise",2]],
 };
 
 export function normalizeText(text: string): string {
@@ -230,7 +230,7 @@ export const FRAMEWORKS: Record<AgentId, string> = {
   strategy: "SWOT, 5 forces de Porter, matrice d'Ansoff, Business Model Canvas, scénarios, cartographie des risques (probabilité × impact).",
 };
 
-export const AGENTS_VERSION = "a23";
+export const AGENTS_VERSION = "a30";
 export type Depth = "quick" | "standard" | "expert";
 // quick = réponse courte ; deep = réponse experte complète ; contribution = note ciblée destinée au Directeur
 export type PromptMode = "quick" | "deep" | "contribution";

@@ -18,6 +18,7 @@ import {
   type DossAgent,
   type PromptMode,
 } from "./agents";
+import { domainRules, collectProblems, formatProblemsForRepair, type Problem } from "./guards";
 
 export type PipelineEvent =
   | { type: "status"; stage: string; label: string }
@@ -46,10 +47,6 @@ const FIRST_TOKEN_MS = 12_000;
 
 /* ---------- Utilitaires ---------- */
 
-function grounding(i: PipelineInput): string {
-  return [i.rules, i.context, i.history].filter(Boolean).join("\n\n");
-}
-
 // Consigne ajoutée automatiquement quand la demande porte sur des relances (ne dépend pas du modèle).
 function taskExtra(message: string): string {
   const m = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -58,11 +55,23 @@ function taskExtra(message: string): string {
 La demande porte sur des relances. Le plan d'action contient, pour les prospects en retard, une séquence de 3 messages écrits en entier et DIFFÉRENTS les uns des autres : J0 (rappel court qui cite le pack d'entrée de la fiche avec son prix réel), J+3 (une valeur ou une question simple), J+7 (dernier message poli). Un bloc par message ; ne répète jamais le même message deux fois ; signe « AGENT DOSS GROUPS ». Ne présuppose aucun besoin ni échange antérieur : n'écris pas « vous avez toujours besoin », « concernant votre projet », « préférez-vous qu'on laisse tomber ». Sans réponse après J+7 : pause de 30 jours, jamais « ne relancez plus ».`;
 }
 
-function sys(i: PipelineInput, agent: DossAgent, mode: PromptMode, extra = ""): string {
-  return `${buildAgentSystemPrompt(agent, mode)}\n${extra}\n${taskExtra(i.message)}\n${grounding(i)}`;
+function sys(i: PipelineInput, agent: DossAgent, mode: PromptMode, extra = "", moreAgents: string[] = []): string {
+  // Ordre recommandé pour Gemini 3 : rôle et méthode, puis données, puis consignes de la tâche,
+  // et les règles essentielles TOUTES À LA FIN (les contraintes en fin de prompt sont les mieux suivies).
+  return [
+    buildAgentSystemPrompt(agent, mode),
+    i.context ? `DONNÉES DE L'ENTREPRISE\n${i.context}` : "",
+    i.history,
+    domainRules([agent.id, ...moreAgents]),
+    extra,
+    taskExtra(i.message),
+    i.rules,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
-export const PIPELINE_VERSION = "p3";
+export const PIPELINE_VERSION = "p5";
 const remaining = (i: PipelineInput) => i.deadlineAt - Date.now();
 const within = (ms: number) => AbortSignal.timeout(Math.max(3_000, ms));
 
@@ -125,7 +134,7 @@ async function reviewAndStream(
   i.emit({ type: "status", stage: "review", label: "Contrôle qualité et approfondissement…" });
   try {
     const r = await streamFinal(
-      sys(i, agent, "deep", REVIEW_INSTRUCTIONS),
+      sys(i, agent, "deep", REVIEW_INSTRUCTIONS + formatProblemsForRepair(collectProblems(draft))),
       `DEMANDE DE L'UTILISATEUR :\n${i.message}\n\nBROUILLON À AMÉLIORER :\n${draft}`,
       opts(3500, within(remaining(i))),
       i.emit
@@ -236,6 +245,11 @@ Méthode :
 8. Conserve en entier les messages prêts à copier et les séquences (J0, J+3, J+7) rédigés par les experts : ne les résume jamais. Les seuls emplacements permis sont [Nom du prospect], [Prénom] et [Quartier] ; l'offre et le prix viennent de la fiche. Applique aussi les RÈGLES DES EXPERTS ci-dessous.
 Réponds uniquement avec la réponse finale complète.`;
 
+function dedupeProblems(list: Problem[]): Problem[] {
+  const seen = new Set<string>();
+  return list.filter((x) => (seen.has(x.warning) ? false : (seen.add(x.warning), true)));
+}
+
 function fallbackAnswer(parts: Array<{ task: Task; text: string }>): string {
   const deep = parts.find((p) => p.task.mode === "deep");
   if (deep) return deep.text;
@@ -313,7 +327,9 @@ async function runExpert(i: PipelineInput): Promise<PipelineResult> {
           "\nRÈGLES DES EXPERTS :\n" +
           [...new Set(parts.flatMap((p) => (p.task.agent.id === "director" ? [] : p.task.agent.guardrails)))]
             .map((g) => `- ${g}`)
-            .join("\n")
+            .join("\n") +
+          formatProblemsForRepair(dedupeProblems(parts.flatMap((p) => collectProblems(p.text)))),
+        parts.map((p) => p.task.agent.id)
       ),
       synthesisUser,
       opts(4000, within(remaining(i))),
