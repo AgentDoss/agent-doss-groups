@@ -50,11 +50,19 @@ function grounding(i: PipelineInput): string {
   return [i.rules, i.context, i.history].filter(Boolean).join("\n\n");
 }
 
-function sys(i: PipelineInput, agent: DossAgent, mode: PromptMode, extra = ""): string {
-  return `${buildAgentSystemPrompt(agent, mode)}\n${extra}\n${grounding(i)}`;
+// Consigne ajoutée automatiquement quand la demande porte sur des relances (ne dépend pas du modèle).
+function taskExtra(message: string): string {
+  const m = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (!/\brelanc/.test(m)) return "";
+  return `CONSIGNE SPÉCIALE RELANCE
+La demande porte sur des relances. Le plan d'action contient, pour les prospects en retard, une séquence de 3 messages écrits en entier et DIFFÉRENTS les uns des autres : J0 (rappel court qui cite le pack d'entrée de la fiche avec son prix réel), J+3 (une valeur ou une question simple), J+7 (dernier message poli). Un bloc par message ; ne répète jamais le même message deux fois ; signe « AGENT DOSS GROUPS ». Ne présuppose aucun besoin ni échange antérieur : n'écris pas « vous avez toujours besoin », « concernant votre projet », « préférez-vous qu'on laisse tomber ». Sans réponse après J+7 : pause de 30 jours, jamais « ne relancez plus ».`;
 }
 
-export const PIPELINE_VERSION = "p2";
+function sys(i: PipelineInput, agent: DossAgent, mode: PromptMode, extra = ""): string {
+  return `${buildAgentSystemPrompt(agent, mode)}\n${extra}\n${taskExtra(i.message)}\n${grounding(i)}`;
+}
+
+export const PIPELINE_VERSION = "p3";
 const remaining = (i: PipelineInput) => i.deadlineAt - Date.now();
 const within = (ms: number) => AbortSignal.timeout(Math.max(3_000, ms));
 

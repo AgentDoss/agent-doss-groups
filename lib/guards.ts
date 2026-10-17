@@ -77,7 +77,7 @@ RÈGLE DE NOMBRE
 ${countRule}`;
 }
 
-export const RULES_VERSION = "r23";
+export const RULES_VERSION = "r24";
 
 /* ---------- Contrôle automatique léger ---------- */
 // Filet de sécurité uniquement. La qualité est assurée par la passe de relecture du pipeline.
@@ -111,7 +111,11 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     ignoreNegated: true,
   },
   {
-    pattern: /\[(?!fiche\]|calcul\]|hypothese\]|repere general\]|objectif\]|analyse\]|nom du prospect\]|nom du client\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
+    pattern: /\[(?:risque|probleme|conseil|astuce|attention|recommandation|point de vigilance)\]/i,
+    warning: "Une étiquette non autorisée (par exemple [Risque]) est utilisée : seules [Fiche], [Calcul], [Hypothèse], [Repère général], [Objectif] et [Analyse] sont valides.",
+  },
+  {
+    pattern: /\[(?!fiche\]|calcul\]|hypothese\]|repere general\]|objectif\]|analyse\]|nom du prospect\]|nom du client\]|risque\]|probleme\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
     warning: "Un emplacement à compléter ou une référence interne apparaît dans un message (par exemple [Nom du pack], [votre offre], [Règle 15]) : remplace-le par l'offre ou le prix réel de ta fiche avant d'envoyer.",
   },
   {
