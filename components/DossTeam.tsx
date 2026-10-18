@@ -585,6 +585,13 @@ export default function DossTeam() {
         </aside>
 
         <main className="content">
+          <div className="workspaceBar">
+            <div className="crumbs"><span>Workspace</span><b>/</b><strong>Command center</strong></div>
+            <div className="workspaceTools">
+              <span className="liveLabel"><i /> Système opérationnel</span>
+              <span className="avatar" aria-label={email}>{email.slice(0, 2).toUpperCase()}</span>
+            </div>
+          </div>
           <div className="top">
             <div>
               <div className="eyebrow">Centre de commande</div>
@@ -646,12 +653,14 @@ export default function DossTeam() {
               <span>✨</span>
             </div>
 
-            <h2>Confiez une mission. Un expert s'en charge.</h2>
-
-            <p>
-              DOSS Directeur identifie le bon spécialiste et la
-              réponse s'affiche en direct.
-            </p>
+            <div className="heroHeader">
+              <div>
+                <div className="heroKicker">INTELLIGENCE OPÉRATIONNELLE · MAINTENANT</div>
+                <h2>Transformez une question en décision.</h2>
+                <p>DOSS Directeur orchestre votre équipe IA et vous restitue un plan directement exploitable.</p>
+              </div>
+              <div className="heroBadge"><span>✦</span><b>9</b><small>agents spécialisés</small></div>
+            </div>
 
             <div className="composer">
               <textarea
