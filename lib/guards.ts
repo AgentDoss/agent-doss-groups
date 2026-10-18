@@ -61,6 +61,7 @@ ${countRule}`;
 const FINANCE_RULES = `FINANCE ET CHIFFRES
 - Marges, coûts et délais de paiement ne sont jamais présentés comme connus s'ils ne sont pas dans la fiche ; pas de « marge de 100 % », pas d'indicateur absolu (« 0 charge ») : donne un objectif réaliste et mesurable.
 - Données chiffrées manquantes : ne conclus pas « impossible ». Construis un petit modèle avec formules (chiffre d'affaires = prix × nombre de clients ; seuil de rentabilité = charges fixes ÷ marge par client), trois scénarios [Hypothèse] (le prudent est le PIRE cas : charges les plus élevées, marge la plus faible), calcule avec des chiffres d'exemple et dis quelles données remplir.
+- Seuil de rentabilité sans charges connues : donne un petit tableau de 3 niveaux de charges fixes (par exemple 20 000, 50 000 et 100 000 FCFA par mois) avec, pour chaque offre de la fiche, le nombre de ventes nécessaires (charges ÷ prix après frais). N'écris jamais que l'argent encaissé est une « trésorerie de départ » : la trésorerie n'est pas renseignée.
 - Une absence de donnée (« 0 FCFA de charges enregistrées ») s'écrit « non renseigné », pas [Fiche]. Un taux ou un coût estimé est [Hypothèse], jamais [Calcul].`;
 
 const FUNNEL_RULES = `ENTONNOIR ET OBJECTIFS
@@ -96,7 +97,7 @@ export function domainRules(agentIds: string[]): string {
   return blocks.length ? `RÈGLES DE MÉTIER (dans ton domaine)\n${blocks.join("\n\n")}` : "";
 }
 
-export const RULES_VERSION = "r33";
+export const RULES_VERSION = "r35";
 
 /* ---------- Contrôle automatique léger ---------- */
 // Filet de sécurité uniquement. La qualité est assurée par la passe de relecture du pipeline.
@@ -146,11 +147,21 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     warning: "Un gain chiffré (« diviser par deux »…) est promis : vérifie qu'il est démontré, sinon écris « gagner du temps ».",
   },
   {
+    pattern: /\b(?:leads?|clients?|ventes|volume|resultats?)(?: de \w+)? garanti(?:e|s|es)?\b/i,
+    warning: "Un résultat est présenté comme garanti : aucun volume, client ou vente ne l'est. Reformule en objectif ou en hypothèse.",
+    ignoreNegated: true,
+  },
+  {
+    pattern: /\b(?:garanti(?:t|ssant|r|ssons) (?:l'atteinte|le succes|la reussite|des (?:resultats|ventes|clients)|que)|risques? (?:financier )?nul|zero risque)\b/i,
+    warning: "Une garantie ou un « risque nul » est affirmé : aucun résultat ni risque n'est garanti. Reformule en objectif ou en hypothèse.",
+    ignoreNegated: true,
+  },
+  {
     pattern: /\[(?:risque|probleme|raisonnement|calcul de reference|manque|verification|solution|conseil|astuce|attention|recommandation|point de vigilance|constat|alerte)\]/i,
     warning: "Une étiquette non autorisée (par exemple [Risque]) est utilisée : seules [Fiche], [Calcul], [Hypothèse], [Repère général], [Objectif] et [Analyse] sont valides.",
   },
   {
-    pattern: /\[(?!(?:fiche|calcul|hypothese|repere general|objectif|analyse|source|sources)\b[^\]]*\]|constat\]|alerte\]|conseil\]|astuce\]|attention\]|recommandation\]|nom du prospect\]|nom du client\]|risque\]|probleme\]|raisonnement\]|calcul de reference\]|manque\]|verification\]|solution\]|texte\]|image\]|photo\]|video\]|produit\]|statut\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
+    pattern: /\[(?!(?:fiche|calcul|hypothese|repere general|objectif|analyse|source|sources)\b[^\]]*\]|constat\]|alerte\]|conseil\]|astuce\]|attention\]|recommandation\]|prenom\b[^\]]{0,30}\]|nom(?: du (?:prospect|client|contact))?\]|votre (?:nom|prenom)\b[^\]]{0,20}\]|risque\]|probleme\]|raisonnement\]|calcul de reference\]|manque\]|verification\]|solution\]|texte\]|image\]|photo\]|video\]|produit\]|statut\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
     warning: "Un emplacement à compléter ou une référence interne apparaît dans un message (par exemple [Nom du pack], [votre offre], [Règle 15]) : remplace-le par l'offre ou le prix réel de ta fiche avant d'envoyer.",
   },
   {
@@ -232,4 +243,5 @@ export function formatWarnings(warnings: string[]): string {
     "Il ne s'agit pas d'une vérification externe des faits :\n\n" +
     warnings.map((w) => `- ${w}`).join("\n")
   );
-}
+    }
+    
