@@ -96,7 +96,7 @@ export function domainRules(agentIds: string[]): string {
   return blocks.length ? `RÈGLES DE MÉTIER (dans ton domaine)\n${blocks.join("\n\n")}` : "";
 }
 
-export const RULES_VERSION = "r32";
+export const RULES_VERSION = "r33";
 
 /* ---------- Contrôle automatique léger ---------- */
 // Filet de sécurité uniquement. La qualité est assurée par la passe de relecture du pipeline.
@@ -146,11 +146,11 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     warning: "Un gain chiffré (« diviser par deux »…) est promis : vérifie qu'il est démontré, sinon écris « gagner du temps ».",
   },
   {
-    pattern: /\[(?:risque|probleme|raisonnement|manque|verification|solution|conseil|astuce|attention|recommandation|point de vigilance|constat|alerte)\]/i,
+    pattern: /\[(?:risque|probleme|raisonnement|calcul de reference|manque|verification|solution|conseil|astuce|attention|recommandation|point de vigilance|constat|alerte)\]/i,
     warning: "Une étiquette non autorisée (par exemple [Risque]) est utilisée : seules [Fiche], [Calcul], [Hypothèse], [Repère général], [Objectif] et [Analyse] sont valides.",
   },
   {
-    pattern: /\[(?!(?:fiche|calcul|hypothese|repere general|objectif|analyse|source|sources)\b[^\]]*\]|constat\]|alerte\]|conseil\]|astuce\]|attention\]|recommandation\]|nom du prospect\]|nom du client\]|risque\]|probleme\]|raisonnement\]|manque\]|verification\]|solution\]|texte\]|image\]|photo\]|video\]|produit\]|statut\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
+    pattern: /\[(?!(?:fiche|calcul|hypothese|repere general|objectif|analyse|source|sources)\b[^\]]*\]|constat\]|alerte\]|conseil\]|astuce\]|attention\]|recommandation\]|nom du prospect\]|nom du client\]|risque\]|probleme\]|raisonnement\]|calcul de reference\]|manque\]|verification\]|solution\]|texte\]|image\]|photo\]|video\]|produit\]|statut\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
     warning: "Un emplacement à compléter ou une référence interne apparaît dans un message (par exemple [Nom du pack], [votre offre], [Règle 15]) : remplace-le par l'offre ou le prix réel de ta fiche avant d'envoyer.",
   },
   {
