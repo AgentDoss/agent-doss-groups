@@ -198,6 +198,7 @@ export async function POST(req: Request) {
   };
 
   let prospectSummary: string[] = [];
+  let openProspectCount: number | null = null;
 
   if (company?.id) {
     const { data: pRows, error: pError } = await sb
@@ -215,6 +216,7 @@ export async function POST(req: Request) {
         created_at: string | null;
       }>;
       const open = list.filter((r) => r.status !== "Client gagné" && r.status !== "Perdu");
+      openProspectCount = open.length;
       const overdue = open.filter((r) => r.next_follow_up && r.next_follow_up < todayIso).length;
       const dueToday = open.filter((r) => r.next_follow_up === todayIso).length;
       const planned = open.filter((r) => r.next_follow_up && r.next_follow_up > todayIso).length;
@@ -324,6 +326,31 @@ export async function POST(req: Request) {
     lines.push(...prospectSummary);
 
     const customerCount = company.customer_count;
+
+    // Calcul de référence déterministe : évite que le modèle se trompe dans l'entonnoir.
+    {
+      const goalsText = typeof company.goals === "string" ? company.goals : "";
+      const m = goalsText.match(/(\d{1,4})\s*clients?/i);
+      const target = m ? Number(m[1]) : null;
+      const have =
+        clientStats ? clientStats.count : typeof company.customer_count === "number" ? company.customer_count : null;
+      if (target && have !== null && target > have) {
+        const missing = target - have;
+        const openN = openProspectCount ?? 0;
+        const fromOpen = openN * 0.2;
+        const cold = Math.max(0, missing - fromOpen);
+        const perClient = 1 / (0.25 * 0.3 * 0.25); // ≈ 53 démarches à froid par client (scénario central)
+        const demarches = Math.ceil(cold * perClient);
+        const months = Math.round((demarches / 80) * 10) / 10;
+        lines.push(
+          `- CALCUL DE RÉFÉRENCE (reprends ces chiffres tels quels, étiquette [Calcul], taux [Hypothèse], scénario central) : objectif ${target} clients, ${have} acquis, ${missing} manquants. ` +
+            `${openN} prospect(s) ouvert(s) à 20 % apportent environ ${fromOpen.toFixed(1).replace(".", ",")} client ; il reste environ ${cold.toFixed(1).replace(".", ",")} client(s) à trouver par prospection à froid. ` +
+            `Taux par démarche à froid : 25 % de réponses × 30 % de rendez-vous × 25 % de ventes = environ 1,9 %, soit environ 53 démarches par client, donc environ ${demarches} démarches au total, soit environ ${String(months).replace(".", ",")} mois à 80 démarches par mois. ` +
+            `Ne confonds jamais démarches envoyées, réponses et prospects qualifiés.`
+        );
+      }
+    }
+
 
     if (clientStats) {
       lines.push(
@@ -521,7 +548,7 @@ N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
           const ver = (m: unknown, k: string) => String((m as Record<string, unknown>)[k] ?? "ancienne");
           send({
             type: "delta",
-            text: `\n\n_Versions en ligne : règles ${ver(GuardsModule, "RULES_VERSION")} · agents ${ver(AgentsModule, "AGENTS_VERSION")} · pipeline ${ver(PipelineModule, "PIPELINE_VERSION")}_`,
+            text: `\n\n_Versions en ligne : règles ${ver(GuardsModule, "RULES_VERSION")} · agents ${ver(AgentsModule, "AGENTS_VERSION")} · pipeline ${ver(PipelineModule, "PIPELINE_VERSION")} · route m3${/CALCUL DE RÉFÉRENCE/.test(context) ? " · calcul oui" : " · calcul non"}_`,
           });
           const warnings = collectWarnings(answer);
           if (warnings.length) {
