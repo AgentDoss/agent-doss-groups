@@ -105,3 +105,9 @@ Le projet inclut maintenant le worker `GET /api/cron/jobs`. Vercel Cron l’appe
 Pour activer un job, il faut créer une ligne dans `doss_jobs` avec `enabled=true`, `every_hours` compris entre 6 et 720, `next_run_at` et une instruction précise. Le compte doit disposer de `CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL` et d’au moins une clé IA dans Vercel Production.
 
 Le téléphone peut être éteint : l’exécution est hébergée par Vercel et Supabase. Le mode gratuit permet une automatisation limitée et non garantie : fréquence de Cron, quotas Vercel/Supabase et quotas gratuits des fournisseurs IA s’appliquent. Pour une exécution toutes les heures ou toutes les 5 minutes, il faudra vérifier les limites du plan actif ou utiliser Supabase pg_cron/Edge Functions selon les quotas disponibles.
+
+## Routines autonomes — mode CTO
+
+L’application possède une page `/routines` et une API authentifiée `/api/jobs` pour créer et consulter les routines. La première routine Production activée est **Audit commercial quotidien**. Elle s’exécute via Vercel Cron, analyse les prospects ouverts et prépare des brouillons. Elle ignore les prospects gagnés ou perdus et n’envoie aucun message automatiquement.
+
+La règle de sécurité est volontaire : analyse automatique, brouillon automatique, validation humaine avant envoi. Les jobs sont réclamés atomiquement par `doss_claim_job`, les runs sont journalisés dans `doss_runs`, et les brouillons dans `doss_drafts`.

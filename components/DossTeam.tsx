@@ -578,6 +578,10 @@ export default function DossTeam() {
               👥 Clients ({clientsCount})
             </a>
 
+            <a className="ghostButton" href="/routines">
+              ✦ Routines IA
+            </a>
+
             <button className="ghostButton" onClick={logout}>
               Déconnexion
             </button>
