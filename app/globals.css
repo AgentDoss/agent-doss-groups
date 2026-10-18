@@ -1021,3 +1021,56 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 .notice { font-size:12px; border-radius:13px; }
 @media (max-width:860px) { .app { grid-template-columns:1fr; } .content { padding:15px 14px 44px; } .workspaceBar { margin-bottom:16px; } .workspaceTools .liveLabel { display:none; } .heroHeader { display:block; } .heroBadge { display:inline-grid; margin-bottom:20px; } .hero { min-height:0; padding:24px 18px; } .hero h2 { font-size:34px; } .top h1 { font-size:29px; } .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; } .agCard { min-height:170px; padding:13px; } .agCard p { font-size:10px; } }
 @media (max-width:480px) { .grid { grid-template-columns:1fr; } .top { align-items:flex-start; } .coSelect { max-width:100%; width:100%; } .top > div:last-child { width:100%; } .hero h2 { font-size:30px; } .hero p { font-size:12px; } }
+
+/* READABILITY + FANTASY PASS — numbers must never disappear behind gradients */
+.stat b {
+  display:inline-block;
+  color:#fff3bd !important;
+  background:linear-gradient(110deg,#fff8dc 0%,#ffe28b 42%,#cbb7ff 100%) !important;
+  background-clip:text !important;
+  -webkit-background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
+  text-shadow:0 0 24px rgba(255,218,116,.18);
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:31px !important;
+  line-height:1.08;
+  letter-spacing:-.045em;
+  animation:numberGlow 3.8s ease-in-out infinite;
+}
+.stat span { color:#e1e2ec !important; font-size:11px !important; line-height:1.35; letter-spacing:.095em; }
+@keyframes numberGlow { 0%,100% { filter:brightness(.98); transform:translateY(0); } 50% { filter:brightness(1.2); transform:translateY(-1px); } }
+.hero h2,.top h1 { font-family:Georgia,'Times New Roman',serif; font-weight:700; }
+.hero h2 { text-shadow:0 4px 30px rgba(255,225,151,.14); }
+.heroKicker,.eyebrow { font-size:10px; letter-spacing:.17em; }
+.card h2 { font-size:clamp(22px,3vw,31px); }
+.companyMeta { font-size:13px; }
+.agCard h4 { font-size:15px; }
+.agCard p { font-size:12px; line-height:1.65; }
+.card:hover { animation:cardLift .42s ease both; }
+@keyframes cardLift { from { transform:translateY(0); } to { transform:translateY(-4px); } }
+.sendButton { position:relative; overflow:hidden; }
+.sendButton::after { content:""; position:absolute; inset:-40% auto -40% -20%; width:22%; transform:rotate(20deg) translateX(-180px); background:rgba(255,255,255,.42); filter:blur(8px); animation:buttonShine 5s ease-in-out infinite; }
+@keyframes buttonShine { 0%,65% { transform:rotate(20deg) translateX(-180px); } 82%,100% { transform:rotate(20deg) translateX(620px); } }
+@media (max-width:860px) {
+  body { font-size:15px; }
+  .content { padding-left:16px; padding-right:16px; }
+  .stats { gap:10px; padding-right:4px; }
+  .stat { flex:0 0 150px !important; min-height:104px; padding:16px !important; }
+  .stat b { font-size:34px !important; }
+  .stat span { font-size:11px !important; }
+  .companyMeta { font-size:14px; line-height:1.55; }
+  .companyTop h1 { font-size:30px; }
+  .hero p { font-size:14px !important; line-height:1.65 !important; }
+  .chip { font-size:12px; }
+  .menuItem span:last-child { font-size:13px; }
+}
+@media (max-width:480px) {
+  .stat { flex-basis:145px !important; }
+  .stat b { font-size:32px !important; }
+  .stat span { font-size:10px !important; letter-spacing:.07em; }
+  .top h1 { font-size:32px !important; }
+  .hero h2 { font-size:35px !important; line-height:1.04; }
+  .heroKicker { font-size:9px; }
+  .hero p { font-size:14px !important; }
+}
+@media (prefers-reduced-motion:reduce) { .stat b,.sendButton::after { animation:none; } .card:hover { animation:none; } }
