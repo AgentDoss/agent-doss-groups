@@ -272,6 +272,17 @@ export async function POST(req: Request) {
         // Une ligne anonymisée par client (15 maximum) : pas de nom ni de coordonnées.
         lines: [
           `- Clients sans date de dernier achat renseignée : ${rows.filter((r) => !r.last_purchase_date).length} sur ${clientTotal} (donnée à compléter dans la page Clients)`,
+          ...(rows.filter((r) => {
+            const d = daysSince(r.last_purchase_date);
+            return d !== null && d < 14;
+          }).length
+            ? [
+                `- CONSIGNE CLIENT RÉCENT : ${rows.filter((r) => {
+                  const d = daysSince(r.last_purchase_date);
+                  return d !== null && d < 14;
+                }).length} client(s) ont acheté il y a moins de 14 jours. N'écris AUCUN message d'abonnement ni de vente additionnelle avant 14 jours : propose d'abord un message de suivi (retour d'expérience) ; l'abonnement se prépare pour plus tard.`,
+              ]
+            : []),
           ...rows.slice(0, 15).map((r, i) => {
           const sincePurchase = daysSince(r.last_purchase_date);
           const sinceAdded = daysSince(r.created_at);
@@ -548,7 +559,7 @@ N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
           const ver = (m: unknown, k: string) => String((m as Record<string, unknown>)[k] ?? "ancienne");
           send({
             type: "delta",
-            text: `\n\n_Versions en ligne : règles ${ver(GuardsModule, "RULES_VERSION")} · agents ${ver(AgentsModule, "AGENTS_VERSION")} · pipeline ${ver(PipelineModule, "PIPELINE_VERSION")} · route m3${/CALCUL DE RÉFÉRENCE/.test(context) ? " · calcul oui" : " · calcul non"}_`,
+            text: `\n\n_Versions en ligne : règles ${ver(GuardsModule, "RULES_VERSION")} · agents ${ver(AgentsModule, "AGENTS_VERSION")} · pipeline ${ver(PipelineModule, "PIPELINE_VERSION")} · route m4${/CALCUL DE RÉFÉRENCE/.test(context) ? " · calcul oui" : " · calcul non"}_`,
           });
           const warnings = collectWarnings(answer);
           if (warnings.length) {
