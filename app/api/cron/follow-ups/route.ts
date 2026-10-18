@@ -49,28 +49,25 @@ export async function GET(request: Request) {
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const { data, error } = await supabase
-      .from("doss_prospects")
-      .select(
-        "id, user_id, company_id, status, next_follow_up, phone, email"
-      )
-      .lte("next_follow_up", today)
-      .not("next_follow_up", "is", null)
-      .limit(500);
-
-    if (error) {
-      console.error(
-        "Erreur lecture des relances :",
-        error.message
-      );
-
-      return NextResponse.json(
-        { error: "Impossible de vérifier les relances." },
-        { status: 500 }
-      );
+    const batchSize = 500;
+    const maxRows = 10_000;
+    const prospects: Array<{ id: string; user_id: string | null; company_id: string | null; status: string | null; next_follow_up: string | null; phone: string | null; email: string | null }> = [];
+    for (let offset = 0; offset < maxRows; offset += batchSize) {
+      const { data, error } = await supabase
+        .from("doss_prospects")
+        .select("id, user_id, company_id, status, next_follow_up, phone, email")
+        .lte("next_follow_up", today)
+        .not("next_follow_up", "is", null)
+        .order("id", { ascending: true })
+        .range(offset, offset + batchSize - 1);
+      if (error) {
+        console.error("Erreur lecture des relances :", error.message);
+        return NextResponse.json({ error: "Impossible de vérifier les relances." }, { status: 500 });
+      }
+      prospects.push(...((data ?? []) as typeof prospects));
+      if (!data || data.length < batchSize) break;
     }
-
-    const prospects = data ?? [];
+    const truncated = prospects.length >= maxRows;
 
     const statutValide = (status: string | null) =>
       status === "Nouveau" || status === "Contacté";
@@ -96,6 +93,7 @@ export async function GET(request: Request) {
       sansTelephone: sansTelephone.length,
       lignesIgnorees:
         prospects.length - avecIdentifiants.length,
+      traitementLimite: truncated,
       envoiWhatsApp: false,
       messagesEnvoyes: 0,
       message:

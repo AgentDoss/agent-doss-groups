@@ -371,6 +371,7 @@ export default function DossTeam() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          "Idempotency-Key": crypto.randomUUID(),
         },
         body: JSON.stringify({
           message,

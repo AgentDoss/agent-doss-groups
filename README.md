@@ -111,3 +111,9 @@ Le téléphone peut être éteint : l’exécution est hébergée par Vercel et 
 L’application possède une page `/routines` et une API authentifiée `/api/jobs` pour créer et consulter les routines. La première routine Production activée est **Audit commercial quotidien**. Elle s’exécute via Vercel Cron, analyse les prospects ouverts et prépare des brouillons. Elle ignore les prospects gagnés ou perdus et n’envoie aucun message automatiquement.
 
 La règle de sécurité est volontaire : analyse automatique, brouillon automatique, validation humaine avant envoi. Les jobs sont réclamés atomiquement par `doss_claim_job`, les runs sont journalisés dans `doss_runs`, et les brouillons dans `doss_drafts`.
+
+## Industrialisation v2.6.0
+
+Le worker autonome traite jusqu’à trois jobs dus par passage, utilise un lease anti-concurrence, confirme le job uniquement après sauvegarde du run et du brouillon, puis applique un backoff en cas d’échec. Les routines sont pilotables depuis `/routines` avec pause, reprise et suppression. Les brouillons sont visibles dans le centre de validation et peuvent être approuvés ou rejetés ; aucune approbation n’envoie encore de message externe.
+
+Les missions interactives acceptent désormais `Idempotency-Key` pour éviter les doubles réservations lors d’un retry réseau. Le Cron jobs est aligné sur une fenêtre de six heures. La migration `003_autonomy_hardening.sql` ajoute les leases, retries, identifiants entreprise canoniques, statuts de revue et idempotence.

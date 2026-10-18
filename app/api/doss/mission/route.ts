@@ -117,6 +117,7 @@ export async function POST(req: Request) {
   const message = typeof body?.message === "string"
     ? body.message.trim()
     : "";
+  const idempotencyKey = req.headers.get("idempotency-key")?.trim() || null;
 
   if (!message || message.length > 4000) {
     return NextResponse.json(
@@ -435,6 +436,7 @@ N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
     p_supporting_agents: route.supportingAgents,
     p_confidence: route.confidence,
     p_company_id: company?.id ?? null,
+    p_idempotency_key: idempotencyKey,
   });
 
   if (reservationError) {
@@ -452,6 +454,7 @@ N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
     used?: number;
     limit?: number;
     plan?: string;
+    existing?: boolean;
   } | null;
 
   if (!result?.ok) {
@@ -504,6 +507,25 @@ N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
         error: "La mission a été réservée, mais son identifiant est manquant. Contactez le support.",
       },
       { status: 500 }
+    );
+  }
+
+  if (result.existing) {
+    const { data: previous } = await sb
+      .from("doss_messages")
+      .select("content")
+      .eq("mission_id", result.mission_id)
+      .eq("user_id", u.user.id)
+      .eq("role", "agent")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const previousAnswer = previous?.content ?? "";
+    return new Response(
+      JSON.stringify({ type: "route", route, depth }) + "\n" +
+      (previousAnswer ? JSON.stringify({ type: "delta", text: previousAnswer }) + "\n" : "") +
+      JSON.stringify({ type: "done", status: "existing", missionId: result.mission_id }) + "\n",
+      { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" } },
     );
   }
 
