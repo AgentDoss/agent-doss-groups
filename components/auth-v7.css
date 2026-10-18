@@ -97,3 +97,11 @@
   .v7Wrap { place-items: start center; }
   .v7Card { margin: 8px 0; }
 }
+
+/* Premium auth surface */
+.v7Wrap { background:radial-gradient(700px 420px at 10% 0,rgba(231,198,106,.15),transparent 60%),radial-gradient(700px 500px at 100% 100%,rgba(142,114,255,.2),transparent 62%),#090a0f; color:#f7f3ea; }
+.v7Card { background:rgba(18,20,30,.82); border:1px solid rgba(231,198,106,.24); box-shadow:0 28px 90px rgba(0,0,0,.45),inset 0 1px rgba(255,255,255,.08); backdrop-filter:blur(22px); }
+.v7Card input { background:rgba(255,255,255,.06); color:#fffaf0; border-color:rgba(255,255,255,.13); }
+.v7Card input:focus { border-color:#e7c66a; box-shadow:0 0 0 4px rgba(231,198,106,.13); }
+.v7Card button[type=submit] { background:linear-gradient(135deg,#ffe9a5,#e7c66a 48%,#b88935); color:#17130b; box-shadow:0 12px 30px rgba(231,198,106,.25); }
+.v7Card a,.v7Card button:not([type=submit]) { color:#ffe39a; }

@@ -1,0 +1,15 @@
+# TODO — Refonte premium
+
+## Terminé
+
+- [x] Direction artistique Obsidian Gold / Aurora définie.
+- [x] Hiérarchie dashboard, navigation, cartes, boutons et états focus révisés.
+- [x] Responsive mobile conservé et renforcé.
+- [x] Animations courtes et compatibles avec `prefers-reduced-motion`.
+- [x] Manifeste des routes ajouté pour l’aperçu.
+
+## À vérifier sur l’environnement réel
+
+- [ ] Vérifier les couleurs sur un téléphone Android et un écran desktop.
+- [ ] Vérifier les contrastes avec les données réelles de l’entreprise.
+- [ ] Vérifier le rendu des réponses longues des agents.

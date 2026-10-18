@@ -1,44 +1,99 @@
-# AGENT DOSS GROUPS — projet Next.js complet (déploiement Vercel)
+# AGENT DOSS GROUPS
 
-Projet **autonome** : à mettre seul à la racine d'un dépôt GitHub propre (rien d'autre dedans).
+Application SaaS Next.js pour piloter une équipe de neuf agents IA, une fiche entreprise et un CRM prospects/clients avec Supabase.
 
-## 1. Supabase
-1. SQL Editor → coller et exécuter `supabase/001_doss_groups.sql`.
-2. Authentication → Providers : « Email » activé (désactivez « Confirm email » pour tester plus vite).
-3. Project Settings → API : copier **Project URL** et **anon public key**.
+## Statut du projet
 
-## 2. Vercel
-1. New Project → importer le dépôt. Framework : **Next.js** (détecté). **Root Directory : vide (racine)**.
-2. Environment Variables (Production + Preview) :
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `GEMINI_API_KEYS` (une ou plusieurs clés séparées par des virgules)
-   - `GEMINI_MODEL` (optionnel — vérifier le nom courant dans Google AI Studio)
-   - Facultatif, pour la bascule : `GROQ_API_KEYS`, `OPENROUTER_API_KEY` + `OPENROUTER_MODEL`, `CUSTOM_LLM_*` (voir `.env.example`)
-3. Deploy. Après tout ajout de variable : **Redeploy**.
+Cette version contient :
 
-## 3. Test
-Ouvrir `/login` → créer un compte → `/doss` → envoyer une mission.
+- le tableau de bord responsive ;
+- l’authentification Supabase et la récupération de mot de passe ;
+- le CRM prospects et clients ;
+- le streaming des missions IA ;
+- la bascule Gemini/Groq/OpenRouter ;
+- les garde-fous métier ;
+- une migration Supabase complète et idempotente ;
+- les RLS multi-utilisateur ;
+- la RPC atomique de quota et de limitation de débit ;
+- aucune route legacy d’envoi d’e-mails commerciaux automatique.
 
-## Diagnostic rapide
-| Symptôme | Cause probable |
-|---|---|
-| Build : « Could not find package.json / next » | Mauvais Root Directory ou fichiers dans un sous-dossier |
-| Build : erreurs de types | Copier le message exact |
-| Page : « Variables … manquantes » | Variables Vercel absentes → Redeploy |
-| 401 « Session invalide » | Se reconnecter ; vérifier l'URL/clé Supabase |
-| 500 « Enregistrement impossible » | SQL non exécuté |
-| 502 « Tous les fournisseurs IA ont échoué » | Clés invalides, quotas épuisés ou noms de modèles périmés |
+Le code est prêt à être configuré et testé sur un projet Supabase de staging. Les clés et les réglages de production restent propres à votre environnement et ne sont pas inclus dans l’archive.
 
-## Bascule automatique des API
-Les fournisseurs sont essayés dans l'ordre : Gemini (chaque clé) → Groq → OpenRouter → personnalisé. En cas de quota épuisé (429/402), clé refusée (401/403), panne (5xx), délai dépassé ou erreur réseau, le suivant prend le relais. Un fournisseur en échec est mis de côté 60 s (10 min si la clé est refusée). Cette pause est propre à chaque instance serverless : elle n'est pas partagée.
+## Installation locale
 
-## Vitesse et qualité
-- Les réponses s'affichent **en direct** (streaming) ; l'interface indique le temps du premier mot et le moteur utilisé.
-- Les agents répondent en format expert : Synthèse, Analyse, Plan d'action, Prochaine action recommandée (120 à 300 mots).
-- Pour la vitesse maximale, ajoutez une clé Groq et mettez `LLM_ORDER=groq,gemini`.
-- La bascule vers un autre fournisseur se fait uniquement avant le premier mot ; une coupure en cours de réponse conserve le texte déjà reçu.
-- Logo DG : `app/icon.svg` (icône du site) et `components/Logo.tsx` (interface).
+```bash
+npm ci
+cp .env.example .env.local
+npm run typecheck
+npm run build
+npm run dev
+```
 
-## Animations fantasy
-Fond d'orbes lumineux et poussière d'étoiles (`components/MagicBackground.tsx`), aura et reflet du logo, runes flottantes, éclats à l'envoi d'une mission, cartes d'agents qui flottent avec bordure lumineuse au survol, icône qui pulse pendant la rédaction. Tout est désactivé si l'appareil demande de réduire les animations.
+Puis ouvrir `http://localhost:3000/login`.
+
+## Configuration Supabase
+
+1. Créer un projet Supabase.
+2. Dans **SQL Editor**, exécuter `supabase/001_doss_groups.sql`.
+3. Activer le provider **Email** dans Authentication.
+4. Configurer les URLs de redirection pour l’application, le reset password et OAuth si Google/Apple sont activés.
+5. Copier l’URL et la clé anon dans `.env.local` ou Vercel.
+
+La migration crée :
+
+- `doss_profiles` ;
+- `doss_company` ;
+- `doss_prospects` ;
+- `doss_clients` ;
+- `doss_missions` ;
+- `doss_messages` ;
+- index, contraintes, triggers, RLS ;
+- `doss_create_mission_with_quota`.
+
+La migration est conçue pour être réexécutée sur une installation déjà initialisée. Faites néanmoins une sauvegarde avant toute migration sur des données réelles.
+
+## Variables d’environnement
+
+Voir `.env.example`. Les clés IA et `SUPABASE_SERVICE_ROLE_KEY` doivent rester côté serveur. Ne jamais les préfixer par `NEXT_PUBLIC_`.
+
+Variables principales :
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- au moins un fournisseur parmi `GEMINI_API_KEYS`, `GROQ_API_KEYS` ou `OPENROUTER_API_KEY`
+- `CRON_SECRET` si le cron de vérification est activé
+
+## Déploiement Vercel
+
+1. Importer le dépôt avec la racine du projet comme **Root Directory**.
+2. Ajouter les variables d’environnement pour Preview et Production.
+3. Déployer avec `npm ci` puis `npm run build`.
+4. Exécuter la migration Supabase avant le premier test métier.
+5. Vérifier une inscription, une entreprise, un prospect et une mission complète.
+
+Le cron `/api/cron/follow-ups` vérifie les relances arrivées à échéance. Il ne réalise aucun envoi automatique WhatsApp ou e-mail.
+
+## Contrôles recommandés avant ouverture
+
+```bash
+npm run typecheck
+npm run build
+```
+
+À tester ensuite avec deux comptes Supabase distincts :
+
+- un utilisateur ne voit jamais les données de l’autre ;
+- une entreprise active ne déborde pas sur le compte voisin ;
+- la conversion prospect-client est idempotente ;
+- le quota gratuit bloque après dix missions réservées ou terminées dans le mois ;
+- le rate limit bloque après six réservations en soixante secondes ;
+- une panne LLM bascule vers le fournisseur suivant ;
+- une session expirée renvoie `401` sur la route mission.
+
+## Limites assumées
+
+Le projet ne peut pas être déclaré « 100 % garanti » sans exécution sur votre projet Supabase réel, vos fournisseurs IA et vos paramètres Vercel. La compilation locale valide le code, tandis que les tests d’intégration doivent valider les migrations, RLS, quotas, OAuth et limites de fournisseurs dans votre environnement.
+
+## Refonte interface premium 2.2.0
+
+L’interface adopte une direction artistique **Obsidian Gold / Aurora** : fond profond, accent champagne, halos violet/cyan, cartes en verre, boutons d’action plus visibles, états focus accessibles, navigation plus nette et adaptation mobile renforcée. Les animations restent courtes et sont désactivées automatiquement avec `prefers-reduced-motion`.
