@@ -66,12 +66,14 @@ const FINANCE_RULES = `FINANCE ET CHIFFRES
 const FUNNEL_RULES = `ENTONNOIR ET OBJECTIFS
 - Distingue les démarches (messages envoyés à froid), les prospects qualifiés (ceux qui répondent) et les clients. Le taux de 20 % [Hypothèse] s'applique aux prospects qualifiés, jamais aux démarches à froid. Démarches nécessaires = prospects qualifiés ÷ taux de réponse (10 à 30 % selon le scénario).
 - Écris « atteignable » seulement si ventes par mois × nombre de mois atteint l'objectif ; sinon écris « non atteint en N mois » et dis combien de mois il faut. Un taux calculé sur 4 prospects n'est pas une donnée fiable.
+- Si les données contiennent une ligne « CALCUL DE RÉFÉRENCE », reprends ses chiffres tels quels (démarches, mois) sans refaire un autre calcul.
 - Il reste toujours un actif exploitable (prospects ouverts, client existant) : ne réponds jamais « impossible ».`;
 
 const CLIENT_RULES = `CLIENTS ET PREUVES
 - Si la demande part d'une prémisse fausse (par exemple « relancer mes clients inactifs » alors qu'il y en a 0), corrige-la en UNE phrase, puis traite la version la plus utile dans ton domaine (satisfaire et faire recommander le ou les clients existants). Renvoie vers l'agent concerné seulement pour sa partie.
 - Ne propose aucune action qui suppose des clients, factures ou fonctionnalités inexistants. Ne présuppose pas ce que le client a acheté : écris « votre achat » ou reprends la ligne « offre achetée » des données.
-- Aucune preuve inventée (« j'ai récemment aidé un client », « résultat : +X % ») : écris « [votre résultat réel, si vous en avez un] ».`;
+- Aucune preuve inventée (« j'ai récemment aidé un client », « résultat : +X % ») : écris « [votre résultat réel, si vous en avez un] ».
+- N'écris pas de message d'abonnement à un client qui vient d'acheter (moins de 14 jours) : demande d'abord son retour d'expérience, puis propose l'abonnement.`;
 
 const CALENDAR_RULES = `CALENDRIER ET CONTENU
 - Numérote « Jour N » ; n'écris jamais « dimanche » ni « fin du mois » pour un jour du plan. Chaque jour a sa propre ligne et son texte prêt à publier.
@@ -94,7 +96,7 @@ export function domainRules(agentIds: string[]): string {
   return blocks.length ? `RÈGLES DE MÉTIER (dans ton domaine)\n${blocks.join("\n\n")}` : "";
 }
 
-export const RULES_VERSION = "r31";
+export const RULES_VERSION = "r32";
 
 /* ---------- Contrôle automatique léger ---------- */
 // Filet de sécurité uniquement. La qualité est assurée par la passe de relecture du pipeline.
@@ -140,11 +142,15 @@ const CHECKS: Array<{ pattern: RegExp; warning: string; ignoreNegated?: boolean 
     warning: "Le message présuppose un échange passé : remplace-le par un rappel court qui cite le pack et son prix, ou vérifie que cet échange a bien eu lieu.",
   },
   {
-    pattern: /\[(?:risque|probleme|manque|verification|solution|conseil|astuce|attention|recommandation|point de vigilance|constat|alerte)\]/i,
+    pattern: /\b(?:diviser par (?:deux|2|trois|3)|divise par (?:deux|2|trois|3)|multiplier par \d|multiplie par \d|doubler (?:vos|votre|les)|doublez (?:vos|votre|les))/i,
+    warning: "Un gain chiffré (« diviser par deux »…) est promis : vérifie qu'il est démontré, sinon écris « gagner du temps ».",
+  },
+  {
+    pattern: /\[(?:risque|probleme|raisonnement|manque|verification|solution|conseil|astuce|attention|recommandation|point de vigilance|constat|alerte)\]/i,
     warning: "Une étiquette non autorisée (par exemple [Risque]) est utilisée : seules [Fiche], [Calcul], [Hypothèse], [Repère général], [Objectif] et [Analyse] sont valides.",
   },
   {
-    pattern: /\[(?!(?:fiche|calcul|hypothese|repere general|objectif|analyse|source|sources)\b[^\]]*\]|constat\]|alerte\]|conseil\]|astuce\]|attention\]|recommandation\]|nom du prospect\]|nom du client\]|risque\]|probleme\]|manque\]|verification\]|solution\]|texte\]|image\]|photo\]|video\]|produit\]|statut\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
+    pattern: /\[(?!(?:fiche|calcul|hypothese|repere general|objectif|analyse|source|sources)\b[^\]]*\]|constat\]|alerte\]|conseil\]|astuce\]|attention\]|recommandation\]|nom du prospect\]|nom du client\]|risque\]|probleme\]|raisonnement\]|manque\]|verification\]|solution\]|texte\]|image\]|photo\]|video\]|produit\]|statut\]|prenom\]|votre nom\]|votre prenom\]|quartier\]|nom\]|sources?\])[^\]]{3,70}\]/i,
     warning: "Un emplacement à compléter ou une référence interne apparaît dans un message (par exemple [Nom du pack], [votre offre], [Règle 15]) : remplace-le par l'offre ou le prix réel de ta fiche avant d'envoyer.",
   },
   {
