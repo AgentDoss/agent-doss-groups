@@ -1074,3 +1074,45 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
   .hero p { font-size:14px !important; }
 }
 @media (prefers-reduced-motion:reduce) { .stat b,.sendButton::after { animation:none; } .card:hover { animation:none; } }
+
+/* MOBILE TYPE SCALE — priorité à la lisibilité */
+@media (max-width:860px) {
+  html { font-size:16px; }
+  .content { font-size:16px; }
+  .workspaceBar { font-size:12px; }
+  .top h1 { font-size:clamp(32px,8.8vw,42px) !important; line-height:1.06; }
+  .top .eyebrow { font-size:11px; }
+  .hero { padding:28px 20px !important; }
+  .heroKicker { font-size:10px; line-height:1.45; }
+  .hero h2 { font-size:clamp(35px,10vw,48px) !important; line-height:1.02; }
+  .hero p { max-width:100%; font-size:16px !important; line-height:1.65 !important; }
+  .composer textarea { min-height:92px; padding:14px !important; font-size:16px !important; line-height:1.5; }
+  .sendButton { min-height:55px; font-size:16px; }
+  .chip { min-height:40px; padding:8px 13px; font-size:13px; }
+  .stat { min-height:116px; padding:18px !important; }
+  .stat b { font-size:38px !important; }
+  .stat span { font-size:12px !important; line-height:1.4; }
+  .notice { font-size:14px; line-height:1.6; }
+  .companyMeta { font-size:15px; }
+  .sect { font-size:14px; }
+  .agCard h4 { font-size:17px; }
+  .agCard .eyebrow { font-size:10px; }
+  .agCard p { font-size:14px; line-height:1.6; }
+  .result .rt strong { font-size:19px !important; }
+  .result .muted { font-size:14px; line-height:1.55; }
+  .agentBubble { font-size:16px; line-height:1.65; }
+  .ghostButton { font-size:14px; }
+}
+@media (max-width:480px) {
+  .content { padding-left:14px; padding-right:14px; }
+  .workspaceBar { margin-bottom:18px; }
+  .crumbs { gap:6px; font-size:11px; }
+  .hero { border-radius:20px; }
+  .hero h2 { font-size:36px !important; }
+  .hero p { font-size:16px !important; }
+  .stats { margin-left:-2px; margin-right:-2px; }
+  .stat { flex-basis:158px !important; }
+  .stat b { font-size:36px !important; }
+  .companyTop h1 { font-size:32px; }
+  .card.pad { padding:19px !important; }
+}
