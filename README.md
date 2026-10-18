@@ -97,3 +97,11 @@ Le projet ne peut pas être déclaré « 100 % garanti » sans exécution sur vo
 ## Refonte interface premium 2.2.0
 
 L’interface adopte une direction artistique **Obsidian Gold / Aurora** : fond profond, accent champagne, halos violet/cyan, cartes en verre, boutons d’action plus visibles, états focus accessibles, navigation plus nette et adaptation mobile renforcée. Les animations restent courtes et sont désactivées automatiquement avec `prefers-reduced-motion`.
+
+## Agents autonomes et exécution téléphone éteint
+
+Le projet inclut maintenant le worker `GET /api/cron/jobs`. Vercel Cron l’appelle chaque jour à 09:00 UTC. Le worker réclame un seul job Supabase avec `doss_claim_job`, ce qui évite les doubles exécutions, lance le pipeline IA, enregistre le run dans `doss_runs` et conserve la production dans `doss_drafts` avec le statut `pending`. Aucun envoi WhatsApp, e-mail ou publication externe n’est automatique : la sortie reste un brouillon à valider.
+
+Pour activer un job, il faut créer une ligne dans `doss_jobs` avec `enabled=true`, `every_hours` compris entre 6 et 720, `next_run_at` et une instruction précise. Le compte doit disposer de `CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL` et d’au moins une clé IA dans Vercel Production.
+
+Le téléphone peut être éteint : l’exécution est hébergée par Vercel et Supabase. Le mode gratuit permet une automatisation limitée et non garantie : fréquence de Cron, quotas Vercel/Supabase et quotas gratuits des fournisseurs IA s’appliquent. Pour une exécution toutes les heures ou toutes les 5 minutes, il faudra vérifier les limites du plan actif ou utiliser Supabase pg_cron/Edge Functions selon les quotas disponibles.
