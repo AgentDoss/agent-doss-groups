@@ -100,7 +100,7 @@ L’interface adopte une direction artistique **Obsidian Gold / Aurora** : fond 
 
 ## Agents autonomes et exécution téléphone éteint
 
-Le projet inclut maintenant le worker `GET /api/cron/jobs`. Vercel Cron l’appelle chaque jour à 09:00 UTC. Le worker réclame un seul job Supabase avec `doss_claim_job`, ce qui évite les doubles exécutions, lance le pipeline IA, enregistre le run dans `doss_runs` et conserve la production dans `doss_drafts` avec le statut `pending`. Aucun envoi WhatsApp, e-mail ou publication externe n’est automatique : la sortie reste un brouillon à valider.
+Le projet inclut maintenant le worker `GET /api/cron/jobs`. Vercel Cron l’appelle chaque jour à 09:00 UTC sur le plan Hobby. Le worker traite jusqu’à trois jobs dus avec `doss_claim_job`, utilise un lease anti-double-exécution, lance le pipeline IA, enregistre le run dans `doss_runs` et conserve la production dans `doss_drafts` avec le statut `pending`. Aucun envoi WhatsApp, e-mail ou publication externe n’est automatique : la sortie reste un brouillon à valider.
 
 Pour activer un job, il faut créer une ligne dans `doss_jobs` avec `enabled=true`, `every_hours` compris entre 6 et 720, `next_run_at` et une instruction précise. Le compte doit disposer de `CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL` et d’au moins une clé IA dans Vercel Production.
 
@@ -116,4 +116,4 @@ La règle de sécurité est volontaire : analyse automatique, brouillon automati
 
 Le worker autonome traite jusqu’à trois jobs dus par passage, utilise un lease anti-concurrence, confirme le job uniquement après sauvegarde du run et du brouillon, puis applique un backoff en cas d’échec. Les routines sont pilotables depuis `/routines` avec pause, reprise et suppression. Les brouillons sont visibles dans le centre de validation et peuvent être approuvés ou rejetés ; aucune approbation n’envoie encore de message externe.
 
-Les missions interactives acceptent désormais `Idempotency-Key` pour éviter les doubles réservations lors d’un retry réseau. Le Cron jobs est aligné sur une fenêtre de six heures. La migration `003_autonomy_hardening.sql` ajoute les leases, retries, identifiants entreprise canoniques, statuts de revue et idempotence.
+Les missions interactives acceptent désormais `Idempotency-Key` pour éviter les doubles réservations lors d’un retry réseau. Le Cron reste quotidien pour respecter la limite du compte Vercel Hobby ; les jobs dus sont drainés en lot à chaque passage. Les fréquences internes de six heures restent disponibles pour un scheduler plus fréquent ou Vercel Pro. La migration `003_autonomy_hardening.sql` ajoute les leases, retries, identifiants entreprise canoniques, statuts de revue et idempotence.
