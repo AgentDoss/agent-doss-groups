@@ -43,3 +43,13 @@
 - [x] Ajouter pause, reprise et suppression des routines.
 - [x] Ajouter l’idempotence des missions interactives.
 - [x] Paginer le contrôle des relances CRM.
+
+
+## Recherche Web publique pour campagnes — 19 octobre 2026
+
+- [x] Ajouter une recherche Tavily serveur, limitée à une requête `basic` par mission de campagne, à cinq résultats et à un timeout; aucun crawl, scraping ni accès de compte privé.
+- [x] Réduire la requête aux données publiques minimales de l’entreprise (secteur, cible générale, région); ne transmettre aucun contact, notes CRM, prospect, client ou identifiant.
+- [x] Joindre aux réponses marketing les titres et liens réellement retournés, distinguer les preuves et hypothèses, et signaler l’absence réelle d’accès Web si l’API n’est pas configurée ou échoue.
+- [x] Couvrir le fournisseur par des tests avec réponses simulées, sans appel Internet dans les tests/builds; séparer les extraits non fiables du prompt système, borner la taille fournisseur et journaliser le hash/statut sans la requête brute.
+- [ ] Configurer `TAVILY_API_KEY` côté serveur dans Vercel Preview et valider le parcours réel après autorisation; aucune clé dans Git, aucune modification Supabase ou déploiement Production.
+- [ ] Traiter séparément plus tard l’accès aux statistiques privées Meta/Instagram/TikTok via OAuth professionnel en lecture seule, si demandé.

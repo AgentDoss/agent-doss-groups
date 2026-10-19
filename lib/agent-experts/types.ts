@@ -19,6 +19,18 @@ export interface CompanyFacts {
   aiScore: number | null;
 }
 
+export interface PublicWebSource {
+  title: string;
+  url: string;
+  content: string;
+  publishedDate: string | null;
+  score: number | null;
+}
+
+export type PublicWebResearch =
+  | { status: "available"; provider: "Tavily"; query: string; searchedAt: string; results: PublicWebSource[]; requestCount: 1 }
+  | { status: "unavailable"; provider: "Tavily"; reason: string; query: string | null; requestCount: 0 | 1 };
+
 // Les lignes ne contiennent jamais de nom, téléphone, courriel ou identifiant de personne.
 export interface ProspectFacts {
   status: string | null;
@@ -50,6 +62,7 @@ export interface AgentToolContext {
   company: CompanyFacts | null;
   prospects: SampledDataset<ProspectFacts> | null;
   clients: SampledDataset<ClientFacts> | null;
+  publicWebResearch?: PublicWebResearch | null;
 }
 
 export interface EvidenceFact {
@@ -62,6 +75,12 @@ export interface EvidenceFact {
   sampleSize?: number;
 }
 
+export interface PublicWebCitation {
+  title: string;
+  url: string;
+  publishedDate: string | null;
+}
+
 export interface AgentToolResult {
   ok: boolean;
   agentId: AgentId;
@@ -69,6 +88,7 @@ export interface AgentToolResult {
   sources: string[];
   facts: EvidenceFact[];
   limitations: string[];
+  citations?: PublicWebCitation[];
   error?: string;
 }
 
@@ -99,5 +119,6 @@ export interface AgentToolSession {
   readonly tools: AgentToolSchema[];
   readonly observations: AgentToolResult[];
   readonly evidencePrompt: string;
+  readonly publicWebPrompt: string;
   execute: (name: string, args: unknown) => Promise<string>;
 }

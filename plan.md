@@ -81,3 +81,36 @@ Les outils Web/recherche de prospects, tendances et concurrents, campagnes/publi
 ## Mise à jour après publication GitHub — 19 octobre 2026
 
 La branche `feature/expert-agents-foundation` a été poussée sur `AgentDoss/agent-doss-groups` au commit `695e52e825ebd8c3d5f3998c68d80bec4047a491`. GitHub rapporte le check `Vercel` en `success` ainsi que `Vercel Preview Comments` terminé avec succès. La [page de statut Vercel](https://vercel.com/agentdoss/agent-doss-groups/FH7Eo98ij4YWAjH3gfXMHdQrQVD9) donne accès aux détails du déploiement; l’URL publique du Preview et son rendu n’ont pas été inspectés directement car l’accès au scope Vercel reste refusé dans cette session. La branche n’est pas fusionnée sur `main`; aucune mise en production ni modification Supabase n’a été faite.
+
+
+## Phase suivante — recherche Web publique pour campagnes — 19 octobre 2026
+
+### Choix technique
+
+Pour les missions de campagne, ajouter Tavily Search côté serveur plutôt que Grounding with Google Search. L’application conserve les réponses dans l’historique et les relit avec ses propres agents; les conditions Google Search grounding imposent l’affichage associé de Search Suggestions et restreignent fortement le cache et l’usage des résultats. Tavily fournit des résultats structurés pour les flux agentiques avec titres, extraits et URL citables. La documentation consultée indique 1 crédit pour une recherche `basic`, 1 000 crédits gratuits par mois, puis un tarif pay-as-you-go annoncé de 0,008 USD par crédit; le budget du compte Tavily reste à surveiller.
+
+### Architecture et garde-fous
+
+- Une recherche Tavily `basic` au maximum par mission pertinente, avec un petit nombre de résultats, un timeout court et une taille maximale de réponse; pas de crawl ni de lecture de pages privées.
+- Déclenchement uniquement pour les missions liées au marketing/campagne et seulement si `TAVILY_API_KEY` est configurée. En l’absence de clé ou en cas d’échec, le moteur doit indiquer clairement que le Web n’a pas été consulté.
+- N’envoyer au fournisseur que le secteur, la cible générale et la zone géographique de la fiche entreprise; exclure CRM, notes libres, contacts, identifiants, courriels, téléphones et comptes sociaux privés.
+- Joindre à la réponse les titres et URLs réellement retournés; séparer faits de sources, hypothèses et recommandations. Aucune action de publication, message, modification publicitaire ou budget.
+- La première phase couvre seulement le Web public et les publications sociales qui sont effectivement indexées et accessibles publiquement. Les statistiques de comptes privés/entreprise Meta, Instagram ou TikTok requièrent une intégration OAuth officielle distincte, pas incluse dans cette phase.
+- Tests unitaires avec réponse Tavily simulée; aucun appel Web réel pendant le build/CI. `TAVILY_API_KEY` reste une variable serveur Vercel, jamais un fichier du dépôt ni une variable `NEXT_PUBLIC_*`.
+
+### Activation
+
+Le code pourra être testé sans clé via mocks. L’accès réel restera inactif tant que la clé Tavily n’est pas configurée dans Vercel Preview; ne pas ajouter la clé à Production ni déclencher de modification Supabase pendant cette phase.
+
+Références officielles : [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search), [FAQ et tarifs Tavily](https://docs.tavily.com/faq/faq), [conditions Tavily](https://tavily.com/terms), [Google Search Grounding et ses conditions](https://ai.google.dev/gemini-api/docs/generate-content/google-search).
+
+
+### Résultat de l’implémentation locale — 19 octobre 2026, 14:30 UTC
+
+- Recherche Tavily serveur implémentée : une requête `basic` maximum par mission de campagne après authentification et réservation, jusqu’à cinq résultats, timeout 7 s, Content-Type JSON requis et body plafonné à 64 Ko avant parsing.
+- Le fournisseur reçoit uniquement les segments activité, cible générale, ville et pays; la requête et les extraits ne sont pas persistés dans le CRM. Les liens cités proviennent des résultats HTTPS réels. La recherche publique ne connecte aucun compte privé Instagram/Facebook/TikTok et n’effectue aucune publication.
+- Les extraits sont séparés du prompt système, envoyés comme JSON non fiable uniquement aux spécialistes Directeur, Marketing et Stratégie. Le planificateur a sa propre défense contre les instructions Web; le fallback de relecture sélectionne les sources par identité de l’expert qui a effectivement réussi.
+- Log serveur minimal par mission : hash SHA-256 de la requête, statut, nombre réel d’appels, résultats et durée, sans texte brut, coordonnées, extraits ni clé. Les réponses Tavily non JSON ou trop volumineuses sont rejetées.
+- Validation locale : `npm test` (7/7), `npm run typecheck`, `npm run build` et `git diff --check` réussissent. Une revue indépendante finale ne relève aucun blocage P1/P2.
+
+**Activation encore en attente :** aucune clé Tavily n’est présente dans la session ni dans le projet; l’accès live demeure donc inactif. La prochaine étape est d’obtenir la clé par saisie sécurisée et de l’ajouter uniquement à l’environnement **Preview** Vercel de la branche, puis de tester un vrai parcours. Production, `main` et Supabase ne sont pas modifiés. Les publications sociales privées restent une intégration OAuth distincte.

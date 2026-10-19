@@ -62,6 +62,11 @@ Variables principales :
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - au moins un fournisseur parmi `GEMINI_API_KEYS`, `GROQ_API_KEYS` ou `OPENROUTER_API_KEY`
 - `CRON_SECRET` si le cron de vérification est activé
+- `TAVILY_API_KEY` facultative pour la recherche Web publique des missions marketing; elle doit rester côté serveur.
+
+La recherche Tavily n'est lancée qu'une fois par mission de campagne pertinente, en recherche `basic` limitée à cinq résultats et avec un délai maximal. Seuls l'activité, la cible générale et la ville/pays de la fiche entreprise sont transmis; le message de mission, les notes, les prospects/clients et leurs coordonnées ne le sont pas. Les réponses incluent des liens réellement retournés. Cette fonction ne lit pas les statistiques privées Instagram/Facebook/TikTok et ne publie rien. Consultez le quota et les tarifs de votre compte Tavily avant activation; l'offre publique consultée annonce 1 crédit par recherche `basic`, 1 000 crédits gratuits mensuels puis une facturation à l'usage.
+
+Les extraits Web sont fournis comme données externes non fiables dans un bloc distinct du prompt système. L'application rejette les réponses non JSON ou supérieures à 64 Ko et journalise chaque tentative côté serveur par identifiant de mission, statut, nombre d'appels, durée et hash de la requête; elle ne journalise ni la requête brute ni la clé.
 
 ## Déploiement Vercel
 

@@ -63,9 +63,22 @@ function serializeEvidence(results: AgentToolResult[]): string {
     sources: result.sources,
     facts: result.facts,
     limitations: result.limitations,
+    citations: result.citations ?? [],
     ...(result.error ? { error: result.error } : {}),
   }));
   return JSON.stringify(compact).slice(0, 12_000);
+}
+
+function serializePublicWeb(context: AgentToolContext, agentId: AgentId): string {
+  if (agentId !== "director" && agentId !== "marketing" && agentId !== "strategy") return "";
+  const research = context.publicWebResearch;
+  if (!research || research.status !== "available") return "";
+  const serialized = JSON.stringify({
+    provider: research.provider,
+    searchedAt: research.searchedAt,
+    results: research.results.map(({ title, url, publishedDate, content }) => ({ title, url, publishedDate, excerpt: content })),
+  });
+  return serialized.replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
 }
 
 export function createAgentToolSession(agentId: AgentId, context: AgentToolContext): AgentToolSession {
@@ -83,7 +96,14 @@ export function createAgentToolSession(agentId: AgentId, context: AgentToolConte
     tools: getAgentTools(agentId),
     observations,
     get evidencePrompt() {
-      return serializeEvidence(observations);
+      // Les extraits Web disponibles sont rendus dans un bloc utilisateur distinct, jamais dans le prompt système.
+      const trustedOnly = observations.filter((result) =>
+        !(result.toolName === "public_web_research" && result.facts.some((fact) => fact.key === "public_web_excerpts"))
+      );
+      return serializeEvidence(trustedOnly);
+    },
+    get publicWebPrompt() {
+      return serializePublicWeb(context, agentId);
     },
     execute: async (name, args) => {
       if (executed.has(name)) return JSON.stringify(executed.get(name));
@@ -95,6 +115,10 @@ export function createAgentToolSession(agentId: AgentId, context: AgentToolConte
       return JSON.stringify(result);
     },
   };
+}
+
+export function publicWebPromptForAgent(sessions: readonly AgentToolSession[], agentId: AgentId): string {
+  return sessions.find((session) => session.agentId === agentId)?.publicWebPrompt ?? "";
 }
 
 export function validateRegistry(): string[] {

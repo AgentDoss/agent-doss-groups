@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { supabaseForToken } from "@/lib/supabase";
 import { directorRoute, getAgentById, type Depth } from "@/lib/agents";
@@ -9,6 +10,7 @@ import {
 } from "@/lib/guards";
 import { runMissionPipeline } from "@/lib/pipeline";
 import { buildAgentToolContext } from "@/lib/agent-experts/context";
+import { searchPublicMarketing, shouldSearchPublicMarketing } from "@/lib/agent-experts/public-web";
 import * as GuardsModule from "@/lib/guards";
 import * as AgentsModule from "@/lib/agents";
 import * as PipelineModule from "@/lib/pipeline";
@@ -207,6 +209,7 @@ export async function POST(req: Request) {
   const route = directorRoute(message);
   const primary = getAgentById(route.primaryAgent) ?? getAgentById("director")!;
   const depth = chooseDepth(body?.depth, message, route);
+  const shouldSearchWeb = shouldSearchPublicMarketing(message, [route.primaryAgent, ...route.supportingAgents]);
   const rules = buildReliabilityRules(getRequestedActionCount(message));
 
   const {
@@ -335,6 +338,32 @@ export async function POST(req: Request) {
 
       try {
         const history = await loadRecentHistory(sb, u.user.id, company?.id ? String(company.id) : null);
+        let missionFacts = agentFacts;
+        if (shouldSearchWeb) {
+          send({ type: "status", stage: "research", label: "Recherche de sources Web publiques…" });
+          const webStartedAt = Date.now();
+          const publicWebResearch = await searchPublicMarketing(agentFacts.company);
+          console.info("[doss.public_web_search]", {
+            missionId: mission.id,
+            provider: "Tavily",
+            status: publicWebResearch.status,
+            requestCount: publicWebResearch.requestCount,
+            queryHash: publicWebResearch.query
+              ? createHash("sha256").update(publicWebResearch.query).digest("hex")
+              : null,
+            queryLength: publicWebResearch.query?.length ?? 0,
+            resultCount: publicWebResearch.status === "available" ? publicWebResearch.results.length : 0,
+            durationMs: Date.now() - webStartedAt,
+          });
+          missionFacts = { ...agentFacts, publicWebResearch };
+          send({
+            type: "status",
+            stage: "research",
+            label: publicWebResearch.status === "available"
+              ? `${publicWebResearch.results.length} source(s) publique(s) préparée(s); aucune statistique de compte privé consultée.`
+              : publicWebResearch.reason,
+          });
+        }
 
         const out = await runMissionPipeline({
           message,
@@ -342,7 +371,7 @@ export async function POST(req: Request) {
           primary,
           depth,
           rules,
-          facts: agentFacts,
+          facts: missionFacts,
           history,
           deadlineAt: startedAt + GENERATION_BUDGET_MS,
           emit: (e) => send(e), // "status" (progression) et "delta" (texte, en direct)
@@ -363,7 +392,7 @@ export async function POST(req: Request) {
           const ver = (m: unknown, k: string) => String((m as Record<string, unknown>)[k] ?? "ancienne");
           send({
             type: "delta",
-            text: `\n\n_Versions en ligne : règles ${ver(GuardsModule, "RULES_VERSION")} · agents ${ver(AgentsModule, "AGENTS_VERSION")} · pipeline ${ver(PipelineModule, "PIPELINE_VERSION")} · route m5 · outils métier v1_`,
+            text: `\n\n_Versions en ligne : règles ${ver(GuardsModule, "RULES_VERSION")} · agents ${ver(AgentsModule, "AGENTS_VERSION")} · pipeline ${ver(PipelineModule, "PIPELINE_VERSION")} · route m6 · outils métier v2_`,
           });
           const warnings = collectWarnings(answer);
           if (warnings.length) {
