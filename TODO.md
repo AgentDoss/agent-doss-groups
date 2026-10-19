@@ -1,4 +1,4 @@
-# TODO — Refonte premium
+# TODO — Agent Doss Groups
 
 ## Terminé
 
@@ -7,6 +7,16 @@
 - [x] Responsive mobile conservé et renforcé.
 - [x] Animations courtes et compatibles avec `prefers-reduced-motion`.
 - [x] Manifeste des routes ajouté pour l’aperçu.
+- [x] Retouche de confort visuel : réduction des animations permanentes, amélioration de la lisibilité des titres et contrôles, et prévention du débordement des indicateurs sur mobile.
+
+## Agents experts — 19 octobre 2026
+
+- [x] Contrat d’outils serveur : définir les faits sourcés, résultats structurés, validateurs d’arguments et permissions par `AgentId`; refuser par défaut tout outil inconnu ou non autorisé, et borner l’accès à l’utilisateur et à l’entreprise de la mission.
+- [x] Neuf spécialités opérantes : donner à Directeur, Marketing, Prospect, Commercial, Client, Finance, Analyste, Assistant et Stratégie des méthodes/outils distincts fondés uniquement sur les sources CRM vérifiées; exposer explicitement une capacité comme indisponible si la table, le champ, l’historique ou l’intégration requis n’existe pas.
+- [x] Réponses vérifiables : associer aux analyses les preuves CRM, calculs, périodes/échantillons et hypothèses disponibles; appliquer les garde-fous empêchant les affirmations non étayées de recherche web, d’envoi, publication, rendez-vous ou action externe.
+- [x] Orchestration honnête : conserver un budget et une limite d’appels; n’activer que les spécialistes pertinents et afficher les agents et outils réellement mobilisés, sans prétendre que les neuf travaillent sur chaque mission.
+- [x] Évaluation synthétique : ajouter des tests automatisés sur des données fictives pour les contrats des neuf agents, le filtrage des outils, les calculs métier et les garde-fous; les vérifications ne lisent ni n’écrivent les données CRM réelles.
+- [ ] Preview Vercel isolé : après résolution du droit d’accès au scope `agentdoss`, préparer au besoin un aperçu d’une branche de fonctionnalité; ne pas fusionner sur `main`, modifier Supabase en production ou déployer la production sans autorisation distincte.
 
 ## À vérifier sur l’environnement réel
 

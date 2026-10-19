@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { directorRoute, getAgentById } from "@/lib/agents";
 import { buildReliabilityRules, getRequestedActionCount } from "@/lib/guards";
 import { runMissionPipeline } from "@/lib/pipeline";
+import { buildAgentToolContext } from "@/lib/agent-experts/context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,19 +33,6 @@ function authorized(req: Request): boolean {
   return bearer === expected || req.headers.get("x-cron-secret") === expected;
 }
 
-function companyContext(company: Company | null): string {
-  if (!company) return "CONTEXTE : aucune fiche entreprise renseignée. N'invente aucune donnée.";
-  const labels: Array<[string, string]> = [
-    ["name", "Nom"], ["activity", "Activité"], ["offer", "Produits/services"], ["target", "Clients visés"],
-    ["location", "Zone"], ["city", "Ville"], ["country", "Pays"], ["goals", "Objectifs"], ["notes", "Notes"],
-  ];
-  const lines = labels.flatMap(([key, label]) => {
-    const value = company[key];
-    return typeof value === "string" && value.trim() ? [`- ${label} : ${value.trim()}`] : [];
-  });
-  return `FICHE ENTREPRISE ET DONNÉES DISPONIBLES\n\n${lines.join("\n")}\n\nRÈGLES : utilise uniquement ces données ; signale les informations inconnues ; ne prétends jamais avoir envoyé un message ou exécuté une action externe.`;
-}
-
 async function loadCompany(sb: ReturnType<typeof supabaseAdmin>, job: Job): Promise<Company | null> {
   if (job.company_uuid) {
     const { data } = await sb.from("doss_company").select(COMPANY_COLS).eq("id", job.company_uuid).eq("user_id", job.user_id).maybeSingle();
@@ -57,6 +45,39 @@ async function loadCompany(sb: ReturnType<typeof supabaseAdmin>, job: Job): Prom
   }
   const { data } = await sb.from("doss_company").select(COMPANY_COLS).eq("user_id", job.user_id).eq("is_active", true).maybeSingle();
   return (data as Company | null) ?? null;
+}
+
+async function loadAgentFacts(sb: ReturnType<typeof supabaseAdmin>, job: Job, company: Company | null) {
+  let prospects: { totalCount: number | null; rows: unknown[] } | null = null;
+  let clients: { totalCount: number | null; rows: unknown[] } | null = null;
+  const companyId = typeof company?.id === "string" ? company.id : null;
+
+  if (companyId) {
+    const { data: prospectRows, count: prospectTotal, error: prospectError } = await sb
+      .from("doss_prospects")
+      .select("status,source,next_follow_up,created_at", { count: "exact" })
+      .eq("user_id", job.user_id)
+      .eq("company_id", companyId)
+      .limit(500);
+    if (!prospectError && prospectRows) {
+      prospects = { totalCount: typeof prospectTotal === "number" ? prospectTotal : null, rows: prospectRows as unknown[] };
+    }
+
+    const baseColumns = "status,total_amount,last_purchase_date,next_follow_up,created_at,source";
+    const readClients = (columns: string) => sb
+      .from("doss_clients")
+      .select(columns, { count: "exact" })
+      .eq("user_id", job.user_id)
+      .eq("company_id", companyId)
+      .limit(1000);
+    let { data: clientRows, count: clientTotal, error: clientError } = await readClients(`${baseColumns},product`);
+    if (clientError) ({ data: clientRows, count: clientTotal, error: clientError } = await readClients(baseColumns));
+    if (!clientError && clientRows) {
+      clients = { totalCount: typeof clientTotal === "number" ? clientTotal : null, rows: clientRows as unknown[] };
+    }
+  }
+
+  return buildAgentToolContext({ snapshotAt: new Date().toISOString(), company, prospects, clients });
 }
 
 function draftContent(answer: string): string {
@@ -81,10 +102,11 @@ async function executeJob(sb: ReturnType<typeof supabaseAdmin>, job: Job) {
     const message = job.instruction.trim() || job.title;
     const route = directorRoute(message);
     const primary = getAgentById(route.primaryAgent) ?? getAgentById("director")!;
+    const facts = await loadAgentFacts(sb, job, company);
     const result = await runMissionPipeline({
       message, route, primary, depth: "standard",
       rules: buildReliabilityRules(getRequestedActionCount(message)),
-      context: companyContext(company), history: "", deadlineAt: startedAt + 48_000, emit: () => undefined,
+      facts, history: "", deadlineAt: startedAt + 48_000, emit: () => undefined,
     });
     const answer = result.answer.trim();
     if (!answer) throw new Error("Réponse IA vide");

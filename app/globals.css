@@ -1131,3 +1131,103 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 .jobActions,.draftActions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; } .jobActions button,.draftActions button { border:1px solid rgba(255,255,255,.13); border-radius:8px; background:rgba(255,255,255,.05); color:#d7d8e5; padding:8px 10px; font-size:11px; cursor:pointer; } .jobActions button:hover { border-color:var(--gold); color:#fff; }
 .draftCard { border:1px solid rgba(255,255,255,.1); border-radius:14px; background:rgba(5,7,12,.32); padding:16px; margin-top:12px; } .draftMeta { display:flex; flex-wrap:wrap; align-items:center; gap:9px; color:#999db0; font-size:11px; } .draftMeta span:first-child { color:#f0d993; font-weight:700; } .draftBadge { margin-left:auto; border-radius:999px; padding:4px 8px; text-transform:uppercase; letter-spacing:.08em; font-size:9px; background:rgba(235,194,91,.12); color:#f4d47f; } .draftBadge.approved { color:#8ee3ac; background:rgba(88,205,126,.1); } .draftBadge.rejected { color:#f2a8a8; background:rgba(220,80,80,.1); } .draftCard pre { max-height:310px; overflow:auto; white-space:pre-wrap; word-break:break-word; margin:13px 0 0; color:#d9dbe6; font:13px/1.65 inherit; } .approveButton { border:0 !important; background:linear-gradient(135deg,#e7c66a,#c79b3e) !important; color:#17130a !important; font-weight:800; } .rejectButton { color:#f4b0b0 !important; }
 @media (max-width:760px) { .draftPanel { padding:20px 17px; border-radius:17px; } .draftMeta { align-items:flex-start; } .draftBadge { margin-left:0; } .draftActions button { flex:1 1 100%; min-height:44px; } .jobActions button { min-height:38px; } }
+
+
+/* CONFORT VISUEL — hiérarchie claire, mouvements réservés aux interactions */
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.content .top h1,
+.content .hero h2 {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-shadow: none;
+}
+.content .top h1 {
+  line-height: 1.12;
+  letter-spacing: -.04em;
+}
+.content .hero h2 {
+  line-height: 1.08;
+  letter-spacing: -.045em;
+}
+.content .eyebrow,
+.content .heroKicker {
+  font-size: 10px;
+  letter-spacing: .15em;
+}
+.content .heroBadge small {
+  font-size: 10px;
+  line-height: 1.35;
+}
+.statusDot {
+  animation: none;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, .12);
+}
+.hero::after {
+  display: none;
+}
+.hero .aurora,
+.stat b,
+.sendButton::after,
+.logoWrap::before,
+.logoWrap .shine::after,
+.agCard .cardIcon {
+  animation: none !important;
+}
+.card {
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.card:hover {
+  animation: none;
+}
+.agCard:hover {
+  transform: translateY(-2px);
+}
+.composer {
+  border: 1px solid rgba(231, 198, 106, .24);
+  transition: box-shadow .18s ease, border-color .18s ease;
+}
+.composer:focus-within {
+  border-color: rgba(255, 227, 154, .78);
+  outline: 3px solid rgba(231, 198, 106, .18);
+  outline-offset: 2px;
+}
+.composer textarea::placeholder {
+  color: #696875;
+  opacity: 1;
+}
+.sendButton:active:not(:disabled),
+.primaryButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+.chip,
+.ghostButton {
+  min-height: 40px;
+}
+.hrow small {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 860px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stat {
+    min-width: 0;
+  }
+  .workspaceBar {
+    line-height: 1.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

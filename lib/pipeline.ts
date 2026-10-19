@@ -1,13 +1,16 @@
 // Pipeline de mission en plusieurs étapes.
 //
-//  quick    : 1 appel          → réponse courte, diffusée en direct
-//  standard : 2 appels         → brouillon expert + relecture qualité (diffusée en direct)
-//  expert   : 3 à 5 appels     → plan du Directeur → experts en parallèle → synthèse (diffusée en direct)
+//  quick    : 1 appel          → réponse courte, diffusée en direct, avec préchargement CRM local
+//  standard : 2 à 3 appels     → tool-calling borné + relecture qualité (diffusée en direct)
+//  expert   : 3 à 7 appels     → plan du Directeur → experts en parallèle → synthèse (diffusée en direct)
 //
 // Chaque étape respecte un budget de temps (deadlineAt) et dégrade proprement :
 // on livre toujours la meilleure version disponible plutôt qu'une erreur.
 
-import { completeLLM, streamLLM, LLMError, type LLMOptions } from "./llm";
+import { completeLLM, completeLLMWithTools, streamLLM, LLMError, type LLMOptions } from "./llm";
+import { createAgentToolSession } from "./agent-experts/registry";
+import { formatEvidenceFooter } from "./agent-experts/evidence";
+import type { AgentToolContext, AgentToolResult, AgentToolSession } from "./agent-experts/types";
 import {
   DOSS_AGENTS,
   getAgentById,
@@ -30,7 +33,7 @@ export interface PipelineInput {
   primary: DossAgent;
   depth: Depth;
   rules: string;    // règles de fiabilité + règle de nombre
-  context: string;  // fiche entreprise
+  facts: AgentToolContext; // snapshot CRM anonymisé, borné et scoppé par la route authentifiée
   history: string;  // historique récent (peut être vide)
   deadlineAt: number; // epoch ms : au-delà, on dégrade
   emit: (e: PipelineEvent) => void;
@@ -55,12 +58,12 @@ function taskExtra(message: string): string {
 La demande porte sur des relances. Le plan d'action contient, pour les prospects en retard, une séquence de 3 messages écrits en entier et DIFFÉRENTS les uns des autres : J0 (rappel court qui cite le pack d'entrée de la fiche avec son prix réel), J+3 (une valeur ou une question simple), J+7 (dernier message poli). Un bloc par message ; ne répète jamais le même message deux fois ; signe « AGENT DOSS GROUPS ». Ne présuppose aucun besoin ni échange antérieur : n'écris pas « vous avez toujours besoin », « concernant votre projet », « préférez-vous qu'on laisse tomber ». Sans réponse après J+7 : pause de 30 jours, jamais « ne relancez plus ».`;
 }
 
-function sys(i: PipelineInput, agent: DossAgent, mode: PromptMode, extra = "", moreAgents: string[] = []): string {
+function sys(i: PipelineInput, agent: DossAgent, mode: PromptMode, extra = "", moreAgents: string[] = [], evidence = ""): string {
   // Ordre recommandé pour Gemini 3 : rôle et méthode, puis données, puis consignes de la tâche,
   // et les règles essentielles TOUTES À LA FIN (les contraintes en fin de prompt sont les mieux suivies).
   return [
     buildAgentSystemPrompt(agent, mode),
-    i.context ? `DONNÉES DE L'ENTREPRISE\n${i.context}` : "",
+    evidence ? `PREUVES STRUCTURÉES FOURNIES PAR LES OUTILS AUTORISÉS\n${evidence}` : "",
     i.history,
     domainRules([agent.id, ...moreAgents]),
     extra,
@@ -71,7 +74,7 @@ function sys(i: PipelineInput, agent: DossAgent, mode: PromptMode, extra = "", m
     .join("\n\n");
 }
 
-export const PIPELINE_VERSION = "p5";
+export const PIPELINE_VERSION = "p6";
 const remaining = (i: PipelineInput) => i.deadlineAt - Date.now();
 const within = (ms: number) => AbortSignal.timeout(Math.max(3_000, ms));
 
@@ -104,6 +107,31 @@ async function streamFinal(
   return { text, provider, interrupted };
 }
 
+function attachEvidence(
+  i: PipelineInput,
+  result: PipelineResult,
+  observations: AgentToolResult[],
+): PipelineResult {
+  const footer = formatEvidenceFooter(observations);
+  if (!footer) return result;
+  i.emit({ type: "delta", text: footer });
+  return { ...result, answer: result.answer + footer };
+}
+
+function collectEvidence(sessions: AgentToolSession[]): AgentToolResult[] {
+  const unique = new Map<string, AgentToolResult>();
+  for (const session of sessions) {
+    for (const result of session.observations) {
+      if (result.ok) unique.set(`${result.agentId}:${result.toolName}`, result);
+    }
+  }
+  return [...unique.values()];
+}
+
+function evidencePrompt(sessions: AgentToolSession[]): string {
+  return sessions.map((session) => `${session.agentId}: ${session.evidencePrompt}`).join("\n").slice(0, 18_000);
+}
+
 /* ---------- Étape de relecture qualité ---------- */
 
 const REVIEW_INSTRUCTIONS = `MODE RELECTURE QUALITÉ
@@ -123,7 +151,8 @@ async function reviewAndStream(
   i: PipelineInput,
   agent: DossAgent,
   draft: string,
-  provider: string | null
+  provider: string | null,
+  evidence = "",
 ): Promise<PipelineResult> {
   // Plus assez de temps : on livre le brouillon tel quel.
   if (remaining(i) < 12_000) {
@@ -134,7 +163,7 @@ async function reviewAndStream(
   i.emit({ type: "status", stage: "review", label: "Contrôle qualité et approfondissement…" });
   try {
     const r = await streamFinal(
-      sys(i, agent, "deep", REVIEW_INSTRUCTIONS + formatProblemsForRepair(collectProblems(draft))),
+      sys(i, agent, "deep", REVIEW_INSTRUCTIONS + formatProblemsForRepair(collectProblems(draft)), [], evidence),
       `DEMANDE DE L'UTILISATEUR :\n${i.message}\n\nBROUILLON À AMÉLIORER :\n${draft}`,
       opts(3500, within(remaining(i))),
       i.emit
@@ -156,7 +185,7 @@ const PLANNABLE = new Set<AgentId>(
   DOSS_AGENTS.filter((a) => a.status === "active" && a.id !== "director").map((a) => a.id)
 );
 
-function planSystem(i: PipelineInput): string {
+function planSystem(i: PipelineInput, evidence: string): string {
   const team = DOSS_AGENTS.filter((a) => PLANNABLE.has(a.id))
     .map((a) => `- ${a.id} : ${a.role}`)
     .join("\n");
@@ -174,7 +203,8 @@ Règles :
 - Agent principal pressenti : ${i.primary.id === "director" ? "à toi de choisir" : i.primary.id}.
 - missing_info : 0 à 3 éléments, seulement ce qui change vraiment l'analyse.
 
-${i.context}`;
+PREUVES DE COUVERTURE FOURNIES PAR LES OUTILS DU DIRECTEUR :
+${evidence}`;
 }
 
 function parsePlan(raw: string): Plan | null {
@@ -257,13 +287,21 @@ function fallbackAnswer(parts: Array<{ task: Task; text: string }>): string {
 }
 
 async function runExpert(i: PipelineInput): Promise<PipelineResult> {
-  // 1. PLAN du Directeur (court, JSON). En cas d'échec : plan de secours issu du routage local.
+  const sessions: AgentToolSession[] = [];
   let plan = fallbackPlan(i);
+  const directorSession = i.primary.id === "director" ? createAgentToolSession("director", i.facts) : null;
+  if (directorSession) sessions.push(directorSession);
+
+  // 1. PLAN du Directeur (court, JSON). En cas d'échec : plan de secours issu du routage local.
   // L'appel de plan n'est utile que si le routage local n'a trouvé aucun spécialiste (économise 1 appel).
   if (i.primary.id === "director" && remaining(i) > 35_000) {
     i.emit({ type: "status", stage: "plan", label: "Le Directeur analyse la mission et la répartit…" });
     try {
-      const r = await completeLLM(planSystem(i), `MISSION :\n${i.message}`, opts(700, within(9_000), 0.2));
+      const r = await completeLLM(
+        planSystem(i, directorSession?.evidencePrompt ?? ""),
+        `MISSION :\n${i.message}`,
+        opts(700, within(9_000), 0.2),
+      );
       plan = parsePlan(r.text) ?? plan;
     } catch {
       /* plan de secours conservé */
@@ -279,30 +317,42 @@ async function runExpert(i: PipelineInput): Promise<PipelineResult> {
   });
 
   const budget = Math.min(28_000, Math.max(10_000, remaining(i) - 22_000));
+  const teamSessions = team.map((task) => createAgentToolSession(task.agent.id, i.facts));
+  sessions.push(...teamSessions);
+  const toolCallingIndex = Math.max(0, team.findIndex((task) => task.mode === "deep"));
   const settled = await Promise.allSettled(
-    team.map((t) =>
-      completeLLM(
-        sys(i, t.agent, t.mode),
+    team.map((t, index) => {
+      const session = teamSessions[index];
+      const system = sys(i, t.agent, t.mode, "", [], session.evidencePrompt);
+      const user =
         `MISSION DE L'UTILISATEUR :\n${i.message}\n\n` +
-          (plan.need ? `BESOIN IDENTIFIÉ PAR LE DIRECTEUR :\n${plan.need}\n\n` : "") +
-          `TA SOUS-MISSION :\n${t.question}`,
-        opts(t.mode === "deep" ? 3000 : 1500, within(budget))
-      ).then((r) => ({ task: t, text: r.text.trim(), provider: r.provider }))
-    )
+        (plan.need ? `BESOIN IDENTIFIÉ PAR LE DIRECTEUR :\n${plan.need}\n\n` : "") +
+        `TA SOUS-MISSION :\n${t.question}`;
+      const options = opts(t.mode === "deep" ? 3000 : 1500, within(budget));
+      const call = index === toolCallingIndex
+        ? completeLLMWithTools(system, user, session.tools, session.execute, options)
+        : completeLLM(system, user, options);
+      return call.then((r) => ({ task: t, text: r.text.trim(), provider: r.provider }));
+    })
   );
   const parts = settled.flatMap((s) => (s.status === "fulfilled" && s.value.text ? [s.value] : []));
   if (parts.length === 0) throw new LLMError("Aucun agent n'a pu produire d'analyse (délai ou fournisseurs indisponibles).", 503);
 
   const lastProvider = parts[parts.length - 1].provider;
+  const observations = collectEvidence(sessions);
+  const dataEvidence = evidencePrompt(sessions);
 
   // Un seul expert disponible : relecture qualité classique.
-  if (parts.length === 1) return reviewAndStream(i, parts[0].task.agent, parts[0].text, lastProvider);
+  if (parts.length === 1) {
+    const result = await reviewAndStream(i, parts[0].task.agent, parts[0].text, lastProvider, dataEvidence);
+    return attachEvidence(i, result, observations);
+  }
 
   // Plus assez de temps pour la synthèse : on livre le meilleur contenu disponible.
   if (remaining(i) < 14_000) {
     const answer = fallbackAnswer(parts);
     i.emit({ type: "delta", text: answer });
-    return { answer, provider: lastProvider, depth: i.depth, interrupted: false };
+    return attachEvidence(i, { answer, provider: lastProvider, depth: i.depth, interrupted: false }, observations);
   }
 
   // 3. SYNTHÈSE du Directeur, diffusée en direct.
@@ -325,21 +375,22 @@ async function runExpert(i: PipelineInput): Promise<PipelineResult> {
         "deep",
         SYNTHESIS_INSTRUCTIONS +
           "\nRÈGLES DES EXPERTS :\n" +
-          [...new Set(parts.flatMap((p) => (p.task.agent.id === "director" ? [] : p.task.agent.guardrails)))]
+        [...new Set(parts.flatMap((p) => (p.task.agent.id === "director" ? [] : p.task.agent.guardrails)))]
             .map((g) => `- ${g}`)
             .join("\n") +
           formatProblemsForRepair(dedupeProblems(parts.flatMap((p) => collectProblems(p.text)))),
-        parts.map((p) => p.task.agent.id)
+        parts.map((p) => p.task.agent.id),
+        dataEvidence,
       ),
       synthesisUser,
       opts(4000, within(remaining(i))),
       i.emit
     );
-    return { answer: r.text, provider: r.provider ?? lastProvider, depth: i.depth, interrupted: r.interrupted };
+    return attachEvidence(i, { answer: r.text, provider: r.provider ?? lastProvider, depth: i.depth, interrupted: r.interrupted }, observations);
   } catch {
     const answer = fallbackAnswer(parts);
     i.emit({ type: "delta", text: answer });
-    return { answer, provider: lastProvider, depth: i.depth, interrupted: false };
+    return attachEvidence(i, { answer, provider: lastProvider, depth: i.depth, interrupted: false }, observations);
   }
 }
 
@@ -348,19 +399,29 @@ async function runExpert(i: PipelineInput): Promise<PipelineResult> {
 export async function runMissionPipeline(i: PipelineInput): Promise<PipelineResult> {
   if (i.depth === "quick") {
     i.emit({ type: "status", stage: "quick", label: `${i.primary.name} répond…` });
-    const r = await streamFinal(sys(i, i.primary, "quick"), i.message, opts(1500, within(remaining(i))), i.emit);
-    return { answer: r.text, provider: r.provider, depth: "quick", interrupted: r.interrupted };
+    const session = createAgentToolSession(i.primary.id, i.facts);
+    const r = await streamFinal(
+      sys(i, i.primary, "quick", "", [], session.evidencePrompt),
+      i.message,
+      opts(1500, within(remaining(i))),
+      i.emit,
+    );
+    return attachEvidence(i, { answer: r.text, provider: r.provider, depth: "quick", interrupted: r.interrupted }, session.observations);
   }
 
   if (i.depth === "standard") {
     i.emit({ type: "status", stage: "draft", label: `${i.primary.name} prépare une analyse approfondie…` });
-    const draft = await completeLLM(
-      sys(i, i.primary, "deep"),
+    const session = createAgentToolSession(i.primary.id, i.facts);
+    const draft = await completeLLMWithTools(
+      sys(i, i.primary, "deep", "", [], session.evidencePrompt),
       i.message,
-      opts(3000, within(remaining(i) - 15_000))
+      session.tools,
+      session.execute,
+      opts(3000, within(remaining(i) - 15_000)),
     );
     if (!draft.text.trim()) throw new LLMError("Le modèle IA n'a retourné aucune réponse.");
-    return reviewAndStream(i, i.primary, draft.text.trim(), draft.provider);
+    const result = await reviewAndStream(i, i.primary, draft.text.trim(), draft.provider, session.evidencePrompt);
+    return attachEvidence(i, result, session.observations);
   }
 
   return runExpert(i);
