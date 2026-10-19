@@ -114,3 +114,10 @@ Références officielles : [Tavily Search API](https://docs.tavily.com/documenta
 - Validation locale : `npm test` (7/7), `npm run typecheck`, `npm run build` et `git diff --check` réussissent. Une revue indépendante finale ne relève aucun blocage P1/P2.
 
 **Activation encore en attente :** aucune clé Tavily n’est présente dans la session ni dans le projet; l’accès live demeure donc inactif. La prochaine étape est d’obtenir la clé par saisie sécurisée et de l’ajouter uniquement à l’environnement **Preview** Vercel de la branche, puis de tester un vrai parcours. Production, `main` et Supabase ne sont pas modifiés. Les publications sociales privées restent une intégration OAuth distincte.
+
+
+## Correctif qualité après rapport Prospect — 19 octobre 2026
+
+Le fichier transmis correspond à l’agent **Prospect** : ses outils comprennent `prospect_external_search_status`, tandis que l’accès Tavily de recherche de campagnes est autorisé uniquement au Directeur, Marketing et Stratégie. Ne pas élargir la recherche au sourcing automatique de personnes ni aux comptes sociaux privés. Pour les campagnes, lancer l’agent Marketing ou le Directeur avec une demande de tendances/concurrents; le Preview doit alors exposer `public_web_research` si la variable Tavily est disponible.
+
+Le rapport contient aussi un benchmark « 5 fois moins cher » et une affirmation de conformité anti-spam sans lien source. Ajouter au prompt commun la règle suivante : aucun taux, ratio, benchmark ou affirmation légale/de conformité sans source vérifiable fournie; à défaut, l’omettre ou la marquer comme hypothèse, et ne jamais garantir la conformité sans connaître juridiction et consentement. Couvrir cette règle par un test synthétique. Cette mise à jour ne nécessite ni migration Supabase ni déploiement Production.
