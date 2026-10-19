@@ -16,7 +16,7 @@
 - [x] Réponses vérifiables : associer aux analyses les preuves CRM, calculs, périodes/échantillons et hypothèses disponibles; appliquer les garde-fous empêchant les affirmations non étayées de recherche web, d’envoi, publication, rendez-vous ou action externe.
 - [x] Orchestration honnête : conserver un budget et une limite d’appels; n’activer que les spécialistes pertinents et afficher les agents et outils réellement mobilisés, sans prétendre que les neuf travaillent sur chaque mission.
 - [x] Évaluation synthétique : ajouter des tests automatisés sur des données fictives pour les contrats des neuf agents, le filtrage des outils, les calculs métier et les garde-fous; les vérifications ne lisent ni n’écrivent les données CRM réelles.
-- [ ] Preview Vercel isolé : après résolution du droit d’accès au scope `agentdoss`, préparer au besoin un aperçu d’une branche de fonctionnalité; ne pas fusionner sur `main`, modifier Supabase en production ou déployer la production sans autorisation distincte.
+- [ ] Vérifier le Preview de la branche : le commit `695e52e` est poussé sur `feature/expert-agents-foundation` et GitHub signale le statut Vercel `success`; récupérer l’URL du Preview et vérifier connexion/parcours lorsque l’accès Vercel est disponible. Ne pas fusionner sur `main`, modifier Supabase en production ou déployer en production sans autorisation distincte.
 
 ## À vérifier sur l’environnement réel
 
