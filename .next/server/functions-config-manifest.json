@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/cron/follow-ups": {},
+    "/api/cron/jobs": {
+      "maxDuration": 60
+    },
+    "/api/doss/mission": {
+      "maxDuration": 60
+    },
+    "/api/drafts": {},
+    "/api/drafts/[id]": {},
+    "/api/jobs": {},
+    "/api/jobs/[id]": {}
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/cron/follow-ups/route": "/api/cron/follow-ups",
+  "/api/cron/jobs/route": "/api/cron/jobs",
+  "/api/doss/mission/route": "/api/doss/mission",
+  "/api/drafts/[id]/route": "/api/drafts/[id]",
+  "/api/drafts/route": "/api/drafts",
+  "/api/jobs/[id]/route": "/api/jobs/[id]",
+  "/api/jobs/route": "/api/jobs",
+  "/clients/page": "/clients",
+  "/doss/page": "/doss",
+  "/entreprise/page": "/entreprise",
+  "/icon.svg/route": "/icon.svg",
+  "/login/page": "/login",
+  "/mot-de-passe-oublie/page": "/mot-de-passe-oublie",
+  "/nouveau-mot-de-passe/page": "/nouveau-mot-de-passe",
+  "/page": "/",
+  "/prospects/page": "/prospects",
+  "/routines/page": "/routines"
+}

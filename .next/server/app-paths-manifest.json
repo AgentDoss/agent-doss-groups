@@ -1,0 +1,21 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/cron/follow-ups/route": "app/api/cron/follow-ups/route.js",
+  "/api/cron/jobs/route": "app/api/cron/jobs/route.js",
+  "/api/doss/mission/route": "app/api/doss/mission/route.js",
+  "/api/drafts/[id]/route": "app/api/drafts/[id]/route.js",
+  "/api/drafts/route": "app/api/drafts/route.js",
+  "/api/jobs/[id]/route": "app/api/jobs/[id]/route.js",
+  "/api/jobs/route": "app/api/jobs/route.js",
+  "/clients/page": "app/clients/page.js",
+  "/doss/page": "app/doss/page.js",
+  "/entreprise/page": "app/entreprise/page.js",
+  "/icon.svg/route": "app/icon.svg/route.js",
+  "/login/page": "app/login/page.js",
+  "/mot-de-passe-oublie/page": "app/mot-de-passe-oublie/page.js",
+  "/nouveau-mot-de-passe/page": "app/nouveau-mot-de-passe/page.js",
+  "/page": "app/page.js",
+  "/prospects/page": "app/prospects/page.js",
+  "/routines/page": "app/routines/page.js"
+}

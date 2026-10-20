@@ -1,0 +1,34 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/mot-de-passe-oublie/layout,_N_T_/mot-de-passe-oublie/page,_N_T_/mot-de-passe-oublie"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/mot-de-passe-oublie/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 64,
+    "slots": {
+      "children": {
+        "hints": 96,
+        "slots": {
+          "children": {
+            "hints": 160,
+            "slots": null
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/91befc46f7636fc07a285bbe81f3dce752bbec7f382a88e8951256c80b3a85c9/$/mot-de-passe-oublie",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/mot-de-passe-oublie/page"
+    },
+    "isFallback": false
+  }
+}

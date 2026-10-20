@@ -62,11 +62,6 @@ Variables principales :
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - au moins un fournisseur parmi `GEMINI_API_KEYS`, `GROQ_API_KEYS` ou `OPENROUTER_API_KEY`
 - `CRON_SECRET` si le cron de vérification est activé
-- `TAVILY_API_KEY` facultative pour la recherche Web publique des missions marketing; elle doit rester côté serveur.
-
-La recherche Tavily n'est lancée qu'une fois par mission de campagne pertinente, en recherche `basic` limitée à cinq résultats et avec un délai maximal. Seuls l'activité, la cible générale et la ville/pays de la fiche entreprise sont transmis; le message de mission, les notes, les prospects/clients et leurs coordonnées ne le sont pas. Les réponses incluent des liens réellement retournés. Cette fonction ne lit pas les statistiques privées Instagram/Facebook/TikTok et ne publie rien. Consultez le quota et les tarifs de votre compte Tavily avant activation; l'offre publique consultée annonce 1 crédit par recherche `basic`, 1 000 crédits gratuits mensuels puis une facturation à l'usage.
-
-Les extraits Web sont fournis comme données externes non fiables dans un bloc distinct du prompt système. L'application rejette les réponses non JSON ou supérieures à 64 Ko et journalise chaque tentative côté serveur par identifiant de mission, statut, nombre d'appels, durée et hash de la requête; elle ne journalise ni la requête brute ni la clé.
 
 ## Déploiement Vercel
 
@@ -122,3 +117,9 @@ La règle de sécurité est volontaire : analyse automatique, brouillon automati
 Le worker autonome traite jusqu’à trois jobs dus par passage, utilise un lease anti-concurrence, confirme le job uniquement après sauvegarde du run et du brouillon, puis applique un backoff en cas d’échec. Les routines sont pilotables depuis `/routines` avec pause, reprise et suppression. Les brouillons sont visibles dans le centre de validation et peuvent être approuvés ou rejetés ; aucune approbation n’envoie encore de message externe.
 
 Les missions interactives acceptent désormais `Idempotency-Key` pour éviter les doubles réservations lors d’un retry réseau. Le Cron reste quotidien pour respecter la limite du compte Vercel Hobby ; les jobs dus sont drainés en lot à chaque passage. Les fréquences internes de six heures restent disponibles pour un scheduler plus fréquent ou Vercel Pro. La migration `003_autonomy_hardening.sql` ajoute les leases, retries, identifiants entreprise canoniques, statuts de revue et idempotence.
+
+## Recherche web des agents
+
+Les missions peuvent maintenant utiliser une recherche web publique contrôlée côté serveur. Le mode par défaut `WEB_RESEARCH_MODE=auto` active la recherche pour les demandes qui portent explicitement sur l'actualité, les prix, les marchés, les concurrents, les prospects, les sources, Internet ou des données locales. Une mission peut demander explicitement la recherche avec le champ JSON `webResearch: true`, ou la désactiver avec `webResearch: false`.
+
+La recherche utilise des sources publiques, limite le nombre de résultats et de pages consultées, bloque les adresses privées/locales, traite les pages comme des données non fiables et ajoute les URLs consultées à la réponse. Aucun secret serveur ni identifiant IA n'est envoyé au navigateur ou à un site consulté. La recherche ne contacte personne, ne publie rien et n'importe aucun prospect automatiquement.

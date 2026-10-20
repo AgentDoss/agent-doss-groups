@@ -1,0 +1,3 @@
+module.exports=[2916,a=>{"use strict";var b=a.i(87924);let c=(a,b)=>{let c=43758.5453*Math.sin(127.1*a+311.7*b);return(c-Math.floor(c)).toFixed(2)};a.s(["f",0,function(){return(0,b.jsxs)("div",{className:"magic","aria-hidden":"true",children:[(0,b.jsx)("span",{className:"orb o1"}),(0,b.jsx)("span",{className:"orb o2"}),(0,b.jsx)("span",{className:"orb o3"}),Array.from({length:28},(a,d)=>(0,b.jsx)("i",{className:"star",style:{left:`${100*Number(c(d,1))}%`,top:`${100*Number(c(d,2))}%`,"--d":`${3+5*Number(c(d,3))}s`,"--s":`${2+4*Number(c(d,4))}px`,"--dl":`${-6*Number(c(d,5))}s`}},d))]})}])}];
+
+//# sourceMappingURL=components_MagicBackground_tsx_0q_lwwl_kpxg1._.js.map

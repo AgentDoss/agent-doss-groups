@@ -44,7 +44,6 @@ const acc = (id: AgentId) =>
 
 type Evt =
   | { type: "route"; route: DirectorRoute }
-  | { type: "status"; stage: string; label: string }
   | { type: "delta"; text: string }
   | {
       type: "done";
@@ -76,40 +75,6 @@ interface Company {
   ai_score?: number;
 }
 
-function renderInline(line: string): React.ReactNode[] {
-  const pattern = /(\*\*[^*]+\*\*|\[[^\]]+\]\(https:\/\/[^)\s]+\))/g;
-  const output: React.ReactNode[] = [];
-  let position = 0;
-
-  for (const match of line.matchAll(pattern)) {
-    const value = match[0];
-    const index = match.index ?? 0;
-    if (index > position) output.push(line.slice(position, index));
-
-    if (value.startsWith("**") && value.endsWith("**")) {
-      output.push(<strong key={`b-${index}`}>{value.slice(2, -2)}</strong>);
-    } else {
-      const link = /^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/.exec(value);
-      let href: string | null = null;
-      if (link) {
-        try {
-          const url = new URL(link[2]);
-          if (url.protocol === "https:" && !url.username && !url.password) href = url.toString();
-        } catch {
-          href = null;
-        }
-      }
-      output.push(href && link
-        ? <a key={`a-${index}`} href={href} target="_blank" rel="noopener noreferrer">{link[1]}</a>
-        : value);
-    }
-    position = index + value.length;
-  }
-
-  if (position < line.length) output.push(line.slice(position));
-  return output;
-}
-
 function Rich({ text }: { text: string }) {
   return (
     <>
@@ -117,6 +82,18 @@ function Rich({ text }: { text: string }) {
         if (!line.trim()) {
           return <div key={i} style={{ height: 8 }} />;
         }
+
+        const parts = line
+          .split(/(\*\*[^*]+\*\*)/g)
+          .map((p, j) =>
+            p.length > 4 &&
+            p.startsWith("**") &&
+            p.endsWith("**") ? (
+              <strong key={j}>{p.slice(2, -2)}</strong>
+            ) : (
+              p
+            )
+          );
 
         return (
           <div
@@ -127,7 +104,7 @@ function Rich({ text }: { text: string }) {
                 : undefined
             }
           >
-            {renderInline(line)}
+            {parts}
           </div>
         );
       })}
@@ -140,7 +117,6 @@ export default function DossTeam() {
   const [route, setRoute] = useState<DirectorRoute | null>(null);
   const [answer, setAnswer] = useState("");
   const [error, setError] = useState("");
-  const [progress, setProgress] = useState("");
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState(0);
   const [provider, setProvider] = useState<string | null>(null);
@@ -364,7 +340,6 @@ export default function DossTeam() {
     setAnswer("");
     setProvider(null);
     setTtft(null);
-    setProgress("Mission en cours…");
     setRoute(directorRoute(message));
     setStage(1);
     setLoading(true);
@@ -420,11 +395,6 @@ export default function DossTeam() {
           return;
         }
 
-        if (ev.type === "status") {
-          setProgress(ev.label);
-          return;
-        }
-
         if (ev.type === "delta") {
           if (first) {
             first = false;
@@ -437,7 +407,6 @@ export default function DossTeam() {
         }
 
         setProvider(ev.provider);
-        setProgress("");
 
         if (ev.error) setError(ev.error);
 
@@ -475,7 +444,6 @@ export default function DossTeam() {
       setStage(3);
     } finally {
       setLoading(false);
-      setProgress("");
     }
   }
 
@@ -922,18 +890,11 @@ export default function DossTeam() {
               )}
 
               {loading && !answer && (
-                <>
-                  {progress && (
-                    <p className="muted" role="status" style={{ margin: "14px 0 0" }}>
-                      {progress}
-                    </p>
-                  )}
-                  <div className="typing" aria-label="Rédaction en cours">
-                    <i />
-                    <i />
-                    <i />
-                  </div>
-                </>
+                <div className="typing" aria-label="Rédaction en cours">
+                  <i />
+                  <i />
+                  <i />
+                </div>
               )}
 
               {answer && (
