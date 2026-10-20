@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./validation/validation.css";
 
 export const metadata: Metadata = {
   title: "AGENT DOSS GROUPS",

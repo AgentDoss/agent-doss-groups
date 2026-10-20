@@ -583,6 +583,10 @@ export default function DossTeam() {
               ✦ Routines IA
             </a>
 
+            <a className="ghostButton validationLink" href="/validation">
+              ✓ Validation ({"à traiter"})
+            </a>
+
             <button className="ghostButton" onClick={logout}>
               Déconnexion
             </button>
