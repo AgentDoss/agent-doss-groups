@@ -591,6 +591,10 @@ export default function DossTeam() {
               ◈ Performance des agents
             </a>
 
+            <a className="ghostButton" href="/parametres">
+              ⚙ Paramètres & intégrations
+            </a>
+
             <button className="ghostButton" onClick={logout}>
               Déconnexion
             </button>
