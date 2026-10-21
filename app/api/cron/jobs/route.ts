@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { directorRoute, getAgentById } from "@/lib/agents";
 import { buildReliabilityRules, getRequestedActionCount } from "@/lib/guards";
 import { runMissionPipeline } from "@/lib/pipeline";
+import { recordAiMetric } from "@/lib/ai-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,6 +89,17 @@ async function executeJob(sb: ReturnType<typeof supabaseAdmin>, job: Job) {
     });
     const answer = result.answer.trim();
     if (!answer) throw new Error("Réponse IA vide");
+
+    await recordAiMetric({
+      userId: job.user_id,
+      runId,
+      operation: "autonomous_job",
+      provider: result.provider,
+      inputChars: message.length,
+      outputChars: answer.length,
+      latencyMs: Date.now() - startedAt,
+      status: result.interrupted ? "interrupted" : "success",
+    });
 
     const { error: runError } = await sb.from("doss_runs").update({
       status: "done", summary: answer.slice(0, 500), result: answer,

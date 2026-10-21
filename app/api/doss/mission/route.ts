@@ -8,6 +8,7 @@ import {
   getRequestedActionCount,
 } from "@/lib/guards";
 import { runMissionPipeline } from "@/lib/pipeline";
+import { recordAiMetric } from "@/lib/ai-observability";
 import { formatWebSources, researchWeb, shouldResearchWeb } from "@/lib/web-research";
 import * as GuardsModule from "@/lib/guards";
 import * as AgentsModule from "@/lib/agents";
@@ -552,6 +553,8 @@ N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
       let answer = "";
       let provider: string | null = null;
       let failure = "";
+      let interrupted = false;
+      let inputChars = message.length;
 
       try {
         const webEnabled = shouldResearchWeb(message, webResearchOption);
@@ -563,6 +566,7 @@ N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
           researchWeb(message, webResearchOption),
         ]);
         const missionContext = webResearch?.context ? `${context}\n\n${webResearch.context}` : context;
+        inputChars += missionContext.length;
 
         const out = await runMissionPipeline({
           message,
@@ -578,11 +582,12 @@ N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
 
         answer = out.answer;
         provider = out.provider;
+        interrupted = out.interrupted;
 
         if (!answer.trim()) {
           failure = "Le modèle IA n'a retourné aucune réponse.";
         } else {
-          if (out.interrupted) {
+          if (interrupted) {
             const note = "\n\n_La réponse a été interrompue avant la fin. Relancez la mission pour obtenir une version complète._";
             send({ type: "delta", text: note });
             answer += note;
@@ -653,6 +658,18 @@ N'invente aucune donnée et recommande de compléter la fiche si nécessaire.`;
       } catch (e) {
         console.error("Erreur sauvegarde messages :", e);
       }
+
+      await recordAiMetric({
+        userId: u.user.id,
+        missionId: mission.id,
+        operation: "interactive_mission",
+        provider,
+        inputChars,
+        outputChars: answer.length,
+        latencyMs: Date.now() - startedAt,
+        status: failure ? "error" : interrupted ? "interrupted" : "success",
+        errorCode: failure ? failure.slice(0, 120) : null,
+      });
 
       send({
         type: "done",
