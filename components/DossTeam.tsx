@@ -587,6 +587,10 @@ export default function DossTeam() {
               ✓ Validation ({"à traiter"})
             </a>
 
+            <a className="ghostButton" href="/performance">
+              ◈ Performance des agents
+            </a>
+
             <button className="ghostButton" onClick={logout}>
               Déconnexion
             </button>
