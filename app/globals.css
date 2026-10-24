@@ -1131,3 +1131,84 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 .jobActions,.draftActions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; } .jobActions button,.draftActions button { border:1px solid rgba(255,255,255,.13); border-radius:8px; background:rgba(255,255,255,.05); color:#d7d8e5; padding:8px 10px; font-size:11px; cursor:pointer; } .jobActions button:hover { border-color:var(--gold); color:#fff; }
 .draftCard { border:1px solid rgba(255,255,255,.1); border-radius:14px; background:rgba(5,7,12,.32); padding:16px; margin-top:12px; } .draftMeta { display:flex; flex-wrap:wrap; align-items:center; gap:9px; color:#999db0; font-size:11px; } .draftMeta span:first-child { color:#f0d993; font-weight:700; } .draftBadge { margin-left:auto; border-radius:999px; padding:4px 8px; text-transform:uppercase; letter-spacing:.08em; font-size:9px; background:rgba(235,194,91,.12); color:#f4d47f; } .draftBadge.approved { color:#8ee3ac; background:rgba(88,205,126,.1); } .draftBadge.rejected { color:#f2a8a8; background:rgba(220,80,80,.1); } .draftCard pre { max-height:310px; overflow:auto; white-space:pre-wrap; word-break:break-word; margin:13px 0 0; color:#d9dbe6; font:13px/1.65 inherit; } .approveButton { border:0 !important; background:linear-gradient(135deg,#e7c66a,#c79b3e) !important; color:#17130a !important; font-weight:800; } .rejectButton { color:#f4b0b0 !important; }
 @media (max-width:760px) { .draftPanel { padding:20px 17px; border-radius:17px; } .draftMeta { align-items:flex-start; } .draftBadge { margin-left:0; } .draftActions button { flex:1 1 100%; min-height:44px; } .jobActions button { min-height:38px; } }
+
+
+/* ===== DOSS v3 — Command center premium, inspiré des outils de travail modernes ===== */
+.app {
+  grid-template-columns: 238px minmax(0, 1fr);
+  background: #080a0f;
+}
+.app .sidebar {
+  background: #0b0e14;
+  border-right: 1px solid #202733;
+  box-shadow: 18px 0 50px rgba(0,0,0,.16);
+}
+.app .content {
+  max-width: 1440px;
+  padding: 22px clamp(18px, 3vw, 48px) 64px;
+}
+.app .workspaceBar {
+  padding: 10px 0 17px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  margin-bottom: 25px;
+}
+.app .crumbs span { color: #8c95a8; }
+.app .crumbs strong { color: #f3d992; }
+.app .liveLabel { color: #9da7ba; }
+.app .top h1 {
+  color: #f8f6ef;
+  font-size: clamp(28px, 3.5vw, 42px);
+  letter-spacing: -.045em;
+}
+.app .top .eyebrow,
+.app .heroKicker,
+.app .eyebrow { color: #d9b66f; }
+.app .status {
+  background: #10151d;
+  border-color: rgba(217,182,111,.28);
+  color: #d8dce5;
+}
+.app .statusDot { background: #5be0a7; }
+.app .hero {
+  border: 1px solid rgba(217,182,111,.32);
+  border-radius: 18px;
+  background: radial-gradient(500px 260px at 92% -20%, rgba(217,182,111,.15), transparent 68%), #11151d;
+  box-shadow: 0 24px 70px rgba(0,0,0,.32);
+}
+.app .hero .aurora { opacity: .18; filter: blur(50px); }
+.app .runes { display: none; }
+.app .hero h2 { color: #fffdf7; font-size: clamp(22px, 2.7vw, 31px); }
+.app .hero p { color: #b4bbc9; opacity: 1; }
+.app .heroBadge { background: rgba(217,182,111,.08); border-color: rgba(217,182,111,.3); }
+.app .heroBadge b, .app .heroBadge span { color: #f3d992; }
+.app .composer { background: #090c12; border: 1px solid #303746; box-shadow: none; }
+.app .composer:focus-within { border-color: #d9b66f; box-shadow: 0 0 0 3px rgba(217,182,111,.14); }
+.app .composer textarea { color: #f8f6ef; }
+.app .sendButton, .app .primaryButton { background: linear-gradient(135deg, #f3d992, #c39a4e); color: #17130b; box-shadow: 0 8px 22px rgba(217,182,111,.16); }
+.app .chip { background: #171d27; border-color: #323b4b; color: #dce1eb; }
+.app .chip:hover:not(:disabled) { background: #202937; border-color: #d9b66f; }
+.app .card {
+  background: #10151d;
+  border-color: #252d3b;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.18);
+}
+.app .stat { border-color: #252d3b; }
+.app .stat b { background: none; color: #f3d992; -webkit-text-fill-color: #f3d992; }
+.app .stat span { color: #9da7ba; }
+.app .agCard:hover { border-color: rgba(217,182,111,.6); box-shadow: 0 18px 40px rgba(0,0,0,.26); }
+.app .menuItem { color: #aeb7c8; }
+.app .menuItem.active { background: linear-gradient(135deg, #d9b66f, #9d7638); color: #17130b; box-shadow: 0 8px 20px rgba(217,182,111,.17); }
+.app .menuItem.active .mic { background: rgba(23,19,11,.12); }
+.app .side-foot .ghostButton { background: #111720; border-color: #2c3543; color: #e8dfca; }
+.app .side-foot .ghostButton:hover { border-color: #d9b66f; }
+.app .result { border-color: rgba(217,182,111,.35); }
+.app .step { background: #171d27; color: #9da7ba; }
+.app .step.on, .app .step.cur { color: #f3d992; border-color: rgba(217,182,111,.5); }
+
+@media (max-width: 860px) {
+  .app .sidebar { background: rgba(11,14,20,.96); border-bottom-color: #202733; }
+  .app .content { padding-left: 14px; padding-right: 14px; }
+  .app .top h1 { font-size: 28px; }
+  .app .hero { border-radius: 16px; }
+}
